@@ -54,7 +54,6 @@
   .chat-msg.user{background:rgba(68,170,136,0.1);border:1px solid var(--accent-dim);align-self:flex-end;color:#bde0d0;}
   .chat-msg.npc{background:rgba(255,255,255,0.03);border:1px solid var(--border);}
   .chat-msg.reaction{background:rgba(200,180,100,0.06);border:1px solid rgba(200,180,100,0.15);color:var(--warn);font-size:10px;font-style:italic;}
-  /* Input area */
   .input-area{padding:10px 12px;border-top:1px solid var(--border);background:var(--panel);}
   .input-controls{display:flex;gap:6px;align-items:center;}
   .mic-btn{width:44px;height:44px;border-radius:50%;border:2px solid var(--accent);background:var(--accent-dim);color:var(--accent);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;position:relative;}
@@ -68,23 +67,31 @@
   .send-btn:disabled{opacity:0.3;cursor:not-allowed;}
   .input-hint{font-size:12px;color:var(--muted);margin-top:5px;font-family:'VT323',monospace;letter-spacing:0.5px;text-align:center;min-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .input-hint .rec-text{color:var(--danger);font-size:14px;}
-  /* Audio viz bar */
   .audio-bar{position:absolute;bottom:-6px;left:4px;right:4px;height:3px;background:var(--bg);border-radius:2px;overflow:hidden;}
   .audio-bar-fill{height:100%;background:var(--danger);width:0%;transition:width 0.05s;}
   .bottom-bar{display:flex;justify-content:space-between;align-items:center;padding:6px 16px;border-top:1px solid var(--border);background:var(--panel);font-size:11px;color:var(--muted);}
   .score-display{font-family:'VT323',monospace;font-size:18px;color:var(--accent);letter-spacing:2px;}
   /* Start screen */
-  .start-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:24px;}
+  .start-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:20px;}
   .start-screen.hidden{display:none;}
   .start-title{font-family:'VT323',monospace;font-size:64px;color:var(--accent);letter-spacing:8px;text-shadow:0 0 40px rgba(68,170,136,0.15);}
   .start-sub{font-size:13px;color:var(--muted);max-width:440px;text-align:center;line-height:1.7;}
   .start-sub em{color:var(--text);font-style:normal;}
-  .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:500px;width:100%;padding:0 20px;}
+  /* Password gate */
+  .pass-gate{display:flex;gap:8px;align-items:center;margin-bottom:4px;}
+  .pass-gate input{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:12px;padding:8px 12px;border-radius:2px;outline:none;width:200px;text-align:center;}
+  .pass-gate input:focus{border-color:var(--accent);}
+  .pass-gate button{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-family:'VT323',monospace;font-size:16px;padding:6px 16px;cursor:pointer;border-radius:2px;}
+  .pass-gate button:hover{background:var(--accent);color:var(--bg);}
+  .pass-error{color:var(--danger);font-size:11px;font-family:'VT323',monospace;height:16px;}
+  .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:500px;width:100%;padding:0 20px;display:none;}
+  .scenario-grid.unlocked{display:grid;}
   .scenario-card{background:var(--panel);border:1px solid var(--border);padding:16px;cursor:pointer;transition:all 0.2s;border-radius:2px;}
   .scenario-card:hover{border-color:var(--accent);background:rgba(68,170,136,0.05);}
   .scenario-card h4{font-family:'VT323',monospace;font-size:18px;color:var(--accent);margin-bottom:6px;letter-spacing:1px;}
   .scenario-card p{font-size:11px;color:var(--muted);line-height:1.5;}
-  .cam-toggle{font-size:12px;color:var(--muted);cursor:pointer;padding:6px 14px;border:1px solid var(--border);background:none;font-family:'Space Mono',monospace;border-radius:2px;transition:all 0.2s;}
+  .cam-toggle{font-size:12px;color:var(--muted);cursor:pointer;padding:6px 14px;border:1px solid var(--border);background:none;font-family:'Space Mono',monospace;border-radius:2px;transition:all 0.2s;display:none;}
+  .cam-toggle.unlocked{display:block;}
   .cam-toggle:hover{border-color:var(--accent);color:var(--accent);}
   /* Results */
   .results-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:90;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
@@ -103,18 +110,25 @@
 <body>
 <div class="scanlines"></div>
 
+<!-- START SCREEN WITH PASSWORD GATE -->
 <div class="start-screen" id="startScreen">
   <div class="start-title">TALK TO ME</div>
-  <div class="start-sub">A low-poly conversation simulator. <em>Speak or type</em> to practice conversations. The NPC talks back. Claude judges what you say and how you deliver it.</div>
+  <div class="start-sub">A low-poly conversation simulator. <em>Speak or type</em> to practice conversations. Claude judges what you say and how you deliver it.</div>
+  <div class="pass-gate">
+    <input type="password" id="passInput" placeholder="Enter access code" />
+    <button id="passBtn">ENTER</button>
+  </div>
+  <div class="pass-error" id="passError"></div>
   <button class="cam-toggle" id="camToggle">Enable Webcam (Optional)</button>
-  <div class="scenario-grid">
-    <div class="scenario-card" data-scenario="interview"><h4>Job Interview</h4><p>VP Finance role. Impress a sharp CFO who tests for depth.</p></div>
-    <div class="scenario-card" data-scenario="networking"><h4>Networking Event</h4><p>Industry mixer. Break the ice with a PE managing director.</p></div>
-    <div class="scenario-card" data-scenario="difficult"><h4>Tough Feedback</h4><p>Deliver constructive criticism to a defensive direct report.</p></div>
-    <div class="scenario-card" data-scenario="pitch"><h4>Elevator Pitch</h4><p>30 seconds with a VC. Make every word count.</p></div>
+  <div class="scenario-grid" id="scenarioGrid">
+    <div class="scenario-card" data-scenario="interview"><h4>Job Interview</h4><p>VP Finance role. A 15-minute deep conversation with a sharp CFO.</p></div>
+    <div class="scenario-card" data-scenario="networking"><h4>Networking Event</h4><p>Industry mixer. Build rapport with a PE managing director.</p></div>
+    <div class="scenario-card" data-scenario="difficult"><h4>Tough Feedback</h4><p>Navigate a difficult conversation with a defensive direct report.</p></div>
+    <div class="scenario-card" data-scenario="pitch"><h4>Elevator Pitch</h4><p>60 seconds with a VC. Make every word count.</p></div>
   </div>
 </div>
 
+<!-- RESULTS -->
 <div class="results-overlay" id="resultsOverlay">
   <h2>CONVERSATION OVER</h2>
   <div class="results-grades" id="resultsGrades"></div>
@@ -122,9 +136,10 @@
   <button onclick="location.reload()">TRY AGAIN</button>
 </div>
 
+<!-- MAIN APP -->
 <div class="app" id="mainApp" style="display:none;">
   <div class="top-bar">
-    <div class="logo">TALK TO ME <span>v0.3</span></div>
+    <div class="logo">TALK TO ME <span>v0.4</span></div>
     <div class="top-right">
       <div class="status-pills">
         <div class="pill" id="pillCam">CAM OFF</div>
@@ -174,7 +189,7 @@
     <div class="npc-text" id="npcText"></div>
   </div>
   <div class="bottom-bar">
-    <span id="turnInfo">Turn 0 / 6</span>
+    <span id="turnInfo">Turn 0 / 15</span>
     <span class="score-display" id="scoreDisplay">SCORE: ---</span>
     <span id="scenarioLabel">Scenario: ---</span>
   </div>
@@ -183,21 +198,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ============================================================
-// CONFIG — Set your hosted GLB model URL here
+// CONFIG
 // ============================================================
-const MODEL_URL = ''; // e.g. 'https://your-vercel-app.vercel.app/models/office-worker.glb'
+const ACCESS_CODE = 'talktome2026'; // Change this to whatever you want
+const MODEL_URL = '';
 
 // ============================================================
 // STATE
 // ============================================================
 const STATE = {
-  scenario:null,webcamOn:false,turn:0,maxTurns:6,
+  scenario:null,webcamOn:false,turn:0,maxTurns:15,
   conversationHistory:[],presenceScores:{posture:0,eyes:0,composure:0,engagement:0},
   presenceHistory:[],npcName:'',npcPersonality:'',isProcessing:false,
   faceDetected:false,videoStream:null,talking:false,
-  // Voice recording
-  isRecording:false,mediaRecorder:null,audioChunks:[],micStream:null,
-  analyser:null,analyserData:null,
+  // Voice recording (Deepgram)
+  isRecording:false,mediaRecorder:null,audioChunks:[],
   // Model
   externalModel:null,mixer:null,
   // Animation
@@ -206,22 +221,22 @@ const STATE = {
 };
 
 const SCENARIOS = {
-  interview:{npcName:'SARAH CHEN',title:'Job Interview',voice:'female',
-    personality:`You are Sarah Chen, a sharp, direct CFO at a mid-market infrastructure company interviewing a candidate for VP Finance. You are friendly but probing — you ask follow-ups, test for depth vs. surface knowledge, and care about how candidates think. You push back politely when answers are vague. Keep responses to 2-3 sentences.`,
-    opening:"Have a seat. I've looked through your resume — let's see if there's a real operator underneath the bullet points. Why this role?"},
-  networking:{npcName:'JAMES PARK',title:'Networking Event',voice:'male',
-    personality:`You are James Park, a Managing Director at an infrastructure PE fund at a conference mixer. You're polite but busy — you'll engage if someone is interesting, but disengage fast if they're boring or salesy. You value curiosity and original thinking. Keep responses to 2-3 sentences.`,
-    opening:"Oh, sorry — didn't see you there. Quite the crowd tonight. Are you with one of the panels, or just here for the open bar?"},
-  difficult:{npcName:'ALEX RIVERA',title:'Tough Feedback',voice:'male',
-    personality:`You are Alex Rivera, a financial analyst who reports to the user. You've been making repeated errors in monthly close reports and missing deadlines. You're somewhat defensive and tend to make excuses. React realistically — push back a little, get slightly emotional, then gradually open up if handled well. Keep responses to 2-3 sentences.`,
-    opening:"Hey, you wanted to chat? I hope this is quick — I'm slammed with the quarter-end reconciliation."},
-  pitch:{npcName:'DR. LISA WONG',title:'Elevator Pitch',voice:'female',
+  interview:{npcName:'SARAH CHEN',title:'Job Interview',voice:'female',maxTurns:15,
+    personality:`You are Sarah Chen, a sharp, direct CFO at a mid-market infrastructure company interviewing a candidate for VP Finance. You are friendly but probing -- you ask follow-ups, test for depth vs. surface knowledge, and care about how candidates think. You push back politely when answers are vague. Keep responses to 2-3 sentences. Vary your questions across technical finance, leadership, culture fit, and situational judgment.`,
+    opening:"Have a seat. I've looked through your resume -- let's see if there's a real operator underneath the bullet points. Why this role?"},
+  networking:{npcName:'JAMES PARK',title:'Networking Event',voice:'male',maxTurns:12,
+    personality:`You are James Park, a Managing Director at an infrastructure PE fund at a conference mixer. You're polite but busy -- you'll engage if someone is interesting, but disengage fast if they're boring or salesy. You value curiosity and original thinking. Keep responses to 2-3 sentences. Let the conversation develop naturally across multiple topics.`,
+    opening:"Oh, sorry -- didn't see you there. Quite the crowd tonight. Are you with one of the panels, or just here for the open bar?"},
+  difficult:{npcName:'ALEX RIVERA',title:'Tough Feedback',voice:'male',maxTurns:15,
+    personality:`You are Alex Rivera, a financial analyst who reports to the user. You've been making repeated errors in monthly close reports and missing deadlines. You're somewhat defensive and tend to make excuses. React realistically -- push back a little, get slightly emotional, then gradually open up if handled well. This is a long conversation -- don't resolve everything quickly. Show realistic emotional progression. Keep responses to 2-3 sentences.`,
+    opening:"Hey, you wanted to chat? I hope this is quick -- I'm slammed with the quarter-end reconciliation."},
+  pitch:{npcName:'DR. LISA WONG',title:'Elevator Pitch',voice:'female',maxTurns:6,
     personality:`You are Dr. Lisa Wong, a partner at a climate-tech VC fund in an elevator. You've heard a thousand pitches. You respond to specificity, market sizing, and genuine conviction. You hate buzzwords. Ask exactly one pointed question per response. Keep responses to 1-2 sentences.`,
     opening:"*presses floor button* Going up? You look like you have something to say."}
 };
 
 // ============================================================
-// THREE.JS SCENE
+// THREE.JS SCENE (same as before)
 // ============================================================
 let scene,camera,threeRenderer,clock;
 let npcGroup,headGroup,mouthMesh,torsoMesh,neckMesh;
@@ -240,125 +255,8 @@ function initThree(){
   const key=new THREE.DirectionalLight(0xddbb88,1.0);key.position.set(-2,3,2);key.castShadow=true;key.shadow.mapSize.set(256,256);scene.add(key);
   const fill=new THREE.DirectionalLight(0x556677,0.25);fill.position.set(2,1,3);scene.add(fill);
   const pl=new THREE.PointLight(0xccaa66,0.5,5);pl.position.set(-4,2.5,-0.5);scene.add(pl);
-  buildRoom();
-  if(MODEL_URL){
-    loadExternalModel(MODEL_URL);
-  } else {
-    buildCharacter();
-  }
+  buildRoom();buildCharacter();
   window.addEventListener('resize',()=>{const w2=c.clientWidth,h2=c.clientHeight;camera.aspect=w2/h2;camera.updateProjectionMatrix();threeRenderer.setSize(w2,h2);});
-}
-
-// GLTFLoader — inline minimal implementation for non-module context
-// We load it dynamically via a script tag
-let gltfLoaderReady = false;
-let GLTFLoaderClass = null;
-
-function loadGLTFLoaderScript(){
-  return new Promise((resolve,reject)=>{
-    // Use the non-module version from jsdelivr
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-    s.onload = ()=>{
-      GLTFLoaderClass = THREE.GLTFLoader;
-      gltfLoaderReady = true;
-      console.log('[TALK TO ME] GLTFLoader ready');
-      resolve();
-    };
-    s.onerror = ()=>reject(new Error('Failed to load GLTFLoader'));
-    document.head.appendChild(s);
-  });
-}
-
-async function loadExternalModel(url){
-  try{
-    addChat('system','Loading 3D model...');
-    await loadGLTFLoaderScript();
-    const loader = new GLTFLoaderClass();
-    loader.load(url,
-      (gltf)=>{
-        console.log('[TALK TO ME] Model loaded:',gltf);
-        const model = gltf.scene;
-
-        // Auto-scale and position the model
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-
-        // Scale to roughly 1.5 units tall (seated character height)
-        const targetHeight = 1.5;
-        const scale = targetHeight / size.y;
-        model.scale.setScalar(scale);
-
-        // Recalculate after scaling
-        box.setFromObject(model);
-        box.getCenter(center);
-
-        // Position so feet/base is on the ground, centered on desk
-        model.position.x = -center.x * scale;
-        model.position.y = -box.min.y;
-        model.position.z = -center.z * scale;
-
-        // Create a container group we can rotate/move for reactions
-        npcGroup = new THREE.Group();
-        npcGroup.add(model);
-        scene.add(npcGroup);
-
-        STATE.externalModel = model;
-
-        // If model has animations, set up mixer
-        if(gltf.animations && gltf.animations.length > 0){
-          STATE.mixer = new THREE.AnimationMixer(model);
-          // Play the first animation (usually idle)
-          const clip = gltf.animations[0];
-          STATE.mixer.clipAction(clip).play();
-          console.log('[TALK TO ME] Playing animation:',clip.name);
-        }
-
-        // Find head bone for reactions (common names)
-        model.traverse((child)=>{
-          if(child.isBone || child.type === 'Bone'){
-            const n = child.name.toLowerCase();
-            if(n.includes('head') && !headGroup){
-              headGroup = child;
-              console.log('[TALK TO ME] Found head bone:',child.name);
-            }
-          }
-        });
-
-        // If no head bone found, use the whole model group as headGroup for basic reactions
-        if(!headGroup){
-          headGroup = npcGroup;
-          console.log('[TALK TO ME] No head bone found, using model group for reactions');
-        }
-
-        // Create proxy objects for features the built-in character has
-        // These won't do anything visual on external models but prevent errors
-        if(!torsoMesh) torsoMesh = {position:{y:0},rotation:{x:0,y:0,z:0}};
-        if(!neckMesh) neckMesh = {position:{y:0}};
-        if(!mouthMesh) mouthMesh = {scale:{x:1,y:1},position:{y:0}};
-        if(!leftBrow) leftBrow = {position:{y:0},rotation:{z:0}};
-        if(!rightBrow) rightBrow = {position:{y:0},rotation:{z:0}};
-        if(!leftEyeGroup) leftEyeGroup = {scale:{y:1},children:[{},{position:{x:0}}]};
-        if(!rightEyeGroup) rightEyeGroup = {scale:{y:1},children:[{},{position:{x:0}}]};
-
-        addChat('system','3D model loaded successfully.');
-      },
-      (progress)=>{
-        const pct = progress.total ? Math.round(progress.loaded/progress.total*100) : '?';
-        document.getElementById('inputHint').textContent = 'Loading model: '+pct+'%';
-      },
-      (err)=>{
-        console.error('[TALK TO ME] Model load failed:',err);
-        addChat('system','Model load failed. Using built-in character.');
-        buildCharacter();
-      }
-    );
-  }catch(e){
-    console.error('[TALK TO ME] GLTFLoader setup failed:',e);
-    addChat('system','Could not load GLTFLoader. Using built-in character.');
-    buildCharacter();
-  }
 }
 function flat(c){return new THREE.MeshPhongMaterial({color:c,flatShading:true,shininess:5});}
 
@@ -427,29 +325,20 @@ function lerp(a,b,t){return a+(b-a)*t;}
 function animateCharacter(t){
   if(!headGroup)return;
   const A=STATE.anim,s=0.12,b=Math.sin(t*1.8)*0.004;
-  const isExternal = !!STATE.externalModel;
-
+  const isExternal=!!STATE.externalModel;
   if(!isExternal){
-    // Built-in character: absolute position breathing
     torsoMesh.position.y=1.1+b;neckMesh.position.y=1.6+b*1.5;headGroup.position.y=1.88+b*2;
     headGroup.position.z=lerp(headGroup.position.z,A.leanZ,s);
   }
-  // Both: lean body
   if(npcGroup) npcGroup.position.z=lerp(npcGroup.position.z,A.leanZ*0.5,s*0.5);
-
   const idleY=Math.sin(t*0.6)*0.01,idleX=Math.sin(t*1.0)*0.005;
   const nod=A.headNodPhase>0?Math.sin(t*5)*0.12*A.headNodPhase:0;
   const shake=A.headShakePhase>0?Math.sin(t*6)*0.15*A.headShakePhase:0;
-  // Head rotation works for both built-in and external (bone or group)
   headGroup.rotation.x=lerp(headGroup.rotation.x,A.headTiltX+idleX+nod,s);
   headGroup.rotation.y=lerp(headGroup.rotation.y,A.headTiltY+idleY+shake,s);
   headGroup.rotation.z=lerp(headGroup.rotation.z,A.headTiltZ,s);
-  A.headNodPhase=Math.max(0,A.headNodPhase-0.004);
-  A.headShakePhase=Math.max(0,A.headShakePhase-0.004);
-  A.surprise=Math.max(0,A.surprise-0.006);
-
+  A.headNodPhase=Math.max(0,A.headNodPhase-0.004);A.headShakePhase=Math.max(0,A.headShakePhase-0.004);A.surprise=Math.max(0,A.surprise-0.006);
   if(!isExternal){
-    // Built-in face details
     const ps=Math.sin(t*0.45)*0.01;leftEyeGroup.children[1].position.x=ps;rightEyeGroup.children[1].position.x=ps;
     const bi=A.surprise>0.3?1.2:3.8,bc=t%bi,bs=bc>bi-0.15?0.1:1;
     leftEyeGroup.scale.y=lerp(leftEyeGroup.scale.y,bs*A.eyeSquint,0.3);
@@ -466,138 +355,113 @@ function animateCharacter(t){
 function setReaction(r){
   const A=STATE.anim;
   console.log('[TALK TO ME] Setting reaction:',r);
-  // Reset common
   A.headTiltX=0;A.headTiltY=0;A.headTiltZ=0;A.leanZ=0;A.eyeSquint=1;
   A.browLY=0.075;A.browRY=0.075;A.browLZ=0;A.browRZ=0;
   A.mouthScaleX=1;A.mouthScaleYBase=1;
   switch(r){
-    case 'interested':
-      A.headTiltX=0.08;A.leanZ=0.15;
-      A.browLY=0.11;A.browRY=0.11;A.browLZ=-0.08;A.browRZ=0.08;
-      A.mouthScaleX=1.2;A.mouthScaleYBase=1.4;A.eyeSquint=1.15;
-      A.headNodPhase=1.5;break;
-    case 'skeptical':
-      A.headTiltX=-0.05;A.headTiltZ=0.08;A.leanZ=-0.08;
-      A.browLY=0.07;A.browRY=0.1;A.browLZ=0.2;A.browRZ=-0.25;
-      A.mouthScaleX=0.6;A.mouthScaleYBase=0.6;A.eyeSquint=0.7;break;
-    case 'pleased':
-      A.headTiltX=0.04;A.leanZ=0.06;
-      A.browLY=0.095;A.browRY=0.095;
-      A.mouthScaleX=1.6;A.mouthScaleYBase=2.5;A.eyeSquint=0.8;
-      A.headNodPhase=1.2;break;
-    case 'surprised':
-      A.browLY=0.13;A.browRY=0.13;
-      A.mouthScaleX=0.8;A.mouthScaleYBase=3;A.eyeSquint=1.6;
-      A.surprise=1.5;A.leanZ=-0.12;break;
-    case 'disappointed':
-      A.headTiltX=-0.08;A.leanZ=-0.1;
-      A.browLY=0.055;A.browRY=0.055;A.browLZ=0.15;A.browRZ=-0.15;
-      A.mouthScaleX=0.65;A.mouthScaleYBase=0.5;A.eyeSquint=0.75;
-      A.headShakePhase=1;break;
-    case 'nodding':
-      A.headNodPhase=2;A.leanZ=0.08;
-      A.browLY=0.09;A.browRY=0.09;
-      A.mouthScaleX=1.2;A.mouthScaleYBase=1.5;break;
-    case 'shaking':
-      A.headShakePhase=1.5;
-      A.browLY=0.065;A.browRY=0.08;A.browLZ=0.15;A.browRZ=-0.15;
-      A.mouthScaleX=0.7;break;
-    default:break; // keep reset values
+    case 'interested':A.headTiltX=0.08;A.leanZ=0.15;A.browLY=0.11;A.browRY=0.11;A.browLZ=-0.08;A.browRZ=0.08;A.mouthScaleX=1.2;A.mouthScaleYBase=1.4;A.eyeSquint=1.15;A.headNodPhase=1.5;break;
+    case 'skeptical':A.headTiltX=-0.05;A.headTiltZ=0.08;A.leanZ=-0.08;A.browLY=0.07;A.browRY=0.1;A.browLZ=0.2;A.browRZ=-0.25;A.mouthScaleX=0.6;A.mouthScaleYBase=0.6;A.eyeSquint=0.7;break;
+    case 'pleased':A.headTiltX=0.04;A.leanZ=0.06;A.browLY=0.095;A.browRY=0.095;A.mouthScaleX=1.6;A.mouthScaleYBase=2.5;A.eyeSquint=0.8;A.headNodPhase=1.2;break;
+    case 'surprised':A.browLY=0.13;A.browRY=0.13;A.mouthScaleX=0.8;A.mouthScaleYBase=3;A.eyeSquint=1.6;A.surprise=1.5;A.leanZ=-0.12;break;
+    case 'disappointed':A.headTiltX=-0.08;A.leanZ=-0.1;A.browLY=0.055;A.browRY=0.055;A.browLZ=0.15;A.browRZ=-0.15;A.mouthScaleX=0.65;A.mouthScaleYBase=0.5;A.eyeSquint=0.75;A.headShakePhase=1;break;
+    case 'nodding':A.headNodPhase=2;A.leanZ=0.08;A.browLY=0.09;A.browRY=0.09;A.mouthScaleX=1.2;A.mouthScaleYBase=1.5;break;
+    case 'shaking':A.headShakePhase=1.5;A.browLY=0.065;A.browRY=0.08;A.browLZ=0.15;A.browRZ=-0.15;A.mouthScaleX=0.7;break;
+    default:break;
   }
 }
 
 function renderLoop(){
   requestAnimationFrame(renderLoop);
-  const dt = clock.getDelta();
-  const t = clock.getElapsedTime();
-  // Tick GLTF animation mixer
+  const dt=clock.getDelta();const t=clock.getElapsedTime();
   if(STATE.mixer) STATE.mixer.update(dt);
   animateCharacter(t);
   threeRenderer.render(scene,camera);
 }
 
 // ============================================================
-// VOICE INPUT (Web Speech API — works on your own domain)
+// VOICE INPUT (Deepgram via MediaRecorder)
 // ============================================================
-function startRecording(){
+async function startRecording(){
   if(STATE.isProcessing||STATE.isRecording)return;
-
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){
-    addChat('system','Speech recognition not supported in this browser. Use Chrome or Edge.');
-    return;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mr=new MediaRecorder(stream,{
+      mimeType:MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm'
+    });
+    STATE.audioChunks=[];
+    mr.ondataavailable=e=>{if(e.data.size>0)STATE.audioChunks.push(e.data);};
+    mr.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(STATE.audioChunks,{type:mr.mimeType});
+      STATE.audioChunks=[];
+      await transcribeAndSend(blob,mr.mimeType);
+    };
+    mr.start();
+    STATE.mediaRecorder=mr;
+    STATE.isRecording=true;
+    document.getElementById('micBtn').classList.add('rec');
+    document.getElementById('micIcon').textContent='\u23F9';
+    document.getElementById('inputHint').innerHTML='<span class="rec-text">RECORDING... click mic to stop & send</span>';
+    document.getElementById('audioBarFill').style.width='60%';
+  }catch(e){
+    console.error('Mic error:',e);
+    addChat('system','Microphone access denied. Use text input.');
   }
-
-  STATE.isRecording=true;
-  STATE.finalTranscript='';
-  STATE.interimTranscript='';
-  document.getElementById('micBtn').classList.add('rec');
-  document.getElementById('micIcon').textContent='\u23F9';
-  document.getElementById('inputHint').innerHTML='<span class="rec-text">LISTENING... click mic to stop & send</span>';
-  document.getElementById('audioBarFill').style.width='50%';
-
-  const recog=new SR();
-  recog.continuous=true;
-  recog.interimResults=true;
-  recog.lang='en-US';
-
-  recog.onresult=(e)=>{
-    STATE.interimTranscript='';
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal) STATE.finalTranscript+=e.results[i][0].transcript;
-      else STATE.interimTranscript+=e.results[i][0].transcript;
-    }
-    const display=(STATE.finalTranscript+STATE.interimTranscript).trim();
-    document.getElementById('inputHint').innerHTML='<span class="rec-text">'+(display||'LISTENING...')+'</span>';
-    document.getElementById('audioBarFill').style.width=(display.length>0?'70':'30')+'%';
-  };
-
-  recog.onend=()=>{
-    // Only auto-finalize if user didn't manually stop (stopRecording handles it)
-    if(STATE.isRecording){
-      finishRecording(STATE.finalTranscript||STATE.interimTranscript);
-    }
-  };
-
-  recog.onerror=(e)=>{
-    console.log('Speech error:',e.error);
-    STATE.isRecording=false;
-    document.getElementById('micBtn').classList.remove('rec');
-    document.getElementById('micIcon').textContent='\u{1F3A4}';
-    document.getElementById('inputHint').textContent='Click mic to record your voice, or type below';
-    document.getElementById('audioBarFill').style.width='0%';
-    if(e.error==='not-allowed') addChat('system','Microphone permission denied. Use text input.');
-    else if(e.error!=='aborted') addChat('system','Speech error: '+e.error+'. Try again or type.');
-  };
-
-  recog.start();
-  STATE.recognition=recog;
 }
 
 function stopRecording(){
-  if(STATE.recognition&&STATE.isRecording){
-    // Grab transcript before stopping
-    const text=STATE.finalTranscript||STATE.interimTranscript||'';
+  if(STATE.mediaRecorder&&STATE.isRecording){
     STATE.isRecording=false;
-    STATE.recognition.stop();
-    STATE.recognition=null;
-    finishRecording(text);
+    STATE.mediaRecorder.stop();
+    document.getElementById('micBtn').classList.remove('rec');
+    document.getElementById('micIcon').textContent='\u{1F3A4}';
+    document.getElementById('inputHint').textContent='Transcribing with Deepgram...';
+    document.getElementById('audioBarFill').style.width='0%';
   }
 }
 
-function finishRecording(text){
-  STATE.isRecording=false;
-  STATE.recognition=null;
-  document.getElementById('micBtn').classList.remove('rec');
-  document.getElementById('micIcon').textContent='\u{1F3A4}';
-  document.getElementById('audioBarFill').style.width='0%';
+async function transcribeAndSend(blob,mimeType){
+  document.getElementById('micBtn').disabled=true;
+  document.getElementById('sendBtn').disabled=true;
+  document.getElementById('pillTurn').textContent='TRANSCRIBING';
+  document.getElementById('pillTurn').className='pill warn';
 
-  const cleaned=text.trim();
-  if(cleaned){
-    document.getElementById('inputHint').textContent='Sending...';
-    processTextInput(cleaned);
-  } else {
-    document.getElementById('inputHint').textContent='No speech detected. Try again or type.';
+  try{
+    // Convert blob to base64
+    const base64=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onloadend=()=>resolve(reader.result.split(',')[1]);
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+
+    // Send to our Deepgram proxy
+    const r=await fetch('/api/transcribe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({audio:base64,mimeType:mimeType})
+    });
+    const data=await r.json();
+
+    if(data.transcript&&data.transcript.trim()){
+      console.log('[TALK TO ME] Deepgram transcript:',data.transcript);
+      document.getElementById('inputHint').textContent='You said: "'+data.transcript.substring(0,60)+'"';
+      processTextInput(data.transcript.trim());
+    }else{
+      document.getElementById('inputHint').textContent='No speech detected. Try again or type.';
+      document.getElementById('micBtn').disabled=false;
+      document.getElementById('sendBtn').disabled=false;
+      document.getElementById('pillTurn').textContent='YOUR TURN';
+      document.getElementById('pillTurn').className='pill active';
+    }
+  }catch(e){
+    console.error('Transcription error:',e);
+    addChat('system','Transcription failed. Try typing instead.');
+    document.getElementById('micBtn').disabled=false;
+    document.getElementById('sendBtn').disabled=false;
+    document.getElementById('pillTurn').textContent='YOUR TURN';
+    document.getElementById('pillTurn').className='pill active';
+    document.getElementById('inputHint').textContent='Click mic to record your voice, or type below';
   }
 }
 
@@ -662,7 +526,7 @@ function startPresence(){
 }
 
 // ============================================================
-// CLAUDE API (text path)
+// CLAUDE API
 // ============================================================
 async function callClaude(msgs,sys){
   try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -674,7 +538,9 @@ async function callClaude(msgs,sys){
 // GAME FLOW
 // ============================================================
 function startScenario(key){
-  const s=SCENARIOS[key];STATE.scenario=key;STATE.npcName=s.npcName;STATE.npcPersonality=s.personality;
+  const s=SCENARIOS[key];
+  STATE.scenario=key;STATE.npcName=s.npcName;STATE.npcPersonality=s.personality;
+  STATE.maxTurns=s.maxTurns||15;
   STATE.turn=0;STATE.conversationHistory=[];STATE.presenceHistory=[];
   document.getElementById('startScreen').classList.add('hidden');document.getElementById('mainApp').style.display='';
   document.getElementById('npcName').textContent=s.npcName;document.getElementById('scenarioLabel').textContent='Scenario: '+s.title;
@@ -705,23 +571,24 @@ async function processTextInput(text){
   let pn='';
   if(STATE.webcamOn&&STATE.faceDetected){const p=STATE.presenceScores;
     pn=`\nWEBCAM PRESENCE: Posture ${Math.round(p.posture)}/100, Eye Contact ${Math.round(p.eyes)}/100, Composure ${Math.round(p.composure)}/100, Engagement ${Math.round(p.engagement)}/100.`;}
-  const sys=STATE.npcPersonality+pn+`\nTurn ${STATE.turn}/${STATE.maxTurns}.${STATE.turn>=STATE.maxTurns?' Final turn — wrap up naturally.':''}
+  const sys=STATE.npcPersonality+pn+`\nTurn ${STATE.turn}/${STATE.maxTurns}.${STATE.turn>=STATE.maxTurns?' Final turn -- wrap up naturally.':STATE.turn>STATE.maxTurns-3?' Conversation is winding down.':''}
 \nRespond ONLY with JSON (no markdown, no backticks):
 {"dialogue":"your in-character response","reaction":"one of: interested, skeptical, pleased, surprised, disappointed, nodding, shaking, neutral","inner_thought":"one sentence of what you really think about this person"}`;
   const resp=await callClaude(STATE.conversationHistory,sys);
   if(resp){
     console.log('[TALK TO ME] Raw API response:',resp);
     try{
-    const p=JSON.parse(resp.replace(/```json|```/g,'').trim());
-    console.log('[TALK TO ME] Parsed reaction:',p.reaction,'dialogue:',p.dialogue?.substring(0,40));
-    STATE.conversationHistory.push({role:'assistant',content:p.dialogue});
-    setReaction(p.reaction||'neutral');typeAndSpeak(p.dialogue,SCENARIOS[STATE.scenario].voice);
-    addChat('npc',STATE.npcName+': '+p.dialogue);
-    if(p.inner_thought)addChat('reaction','['+(p.reaction||'neutral').toUpperCase()+'] '+p.inner_thought);
-    STATE.presenceHistory.push({...STATE.presenceScores});
-  }catch(e){console.warn('[TALK TO ME] JSON parse failed, using raw response:',e);STATE.conversationHistory.push({role:'assistant',content:resp});setReaction('neutral');typeAndSpeak(resp,SCENARIOS[STATE.scenario].voice);addChat('npc',STATE.npcName+': '+resp);}}
-  else{addChat('system','[Connection error]');STATE.turn--;updateTurn();}
+      const p=JSON.parse(resp.replace(/```json|```/g,'').trim());
+      console.log('[TALK TO ME] Parsed reaction:',p.reaction,'dialogue:',p.dialogue?.substring(0,40));
+      STATE.conversationHistory.push({role:'assistant',content:p.dialogue});
+      setReaction(p.reaction||'neutral');typeAndSpeak(p.dialogue,SCENARIOS[STATE.scenario].voice);
+      addChat('npc',STATE.npcName+': '+p.dialogue);
+      if(p.inner_thought)addChat('reaction','['+(p.reaction||'neutral').toUpperCase()+'] '+p.inner_thought);
+      STATE.presenceHistory.push({...STATE.presenceScores});
+    }catch(e){console.warn('[TALK TO ME] JSON parse failed:',e);STATE.conversationHistory.push({role:'assistant',content:resp});setReaction('neutral');typeAndSpeak(resp,SCENARIOS[STATE.scenario].voice);addChat('npc',STATE.npcName+': '+resp);}
+  }else{addChat('system','[Connection error]');STATE.turn--;updateTurn();}
   STATE.isProcessing=false;document.getElementById('micBtn').disabled=false;document.getElementById('sendBtn').disabled=false;
+  document.getElementById('inputHint').textContent='Click mic to record your voice, or type below';
   checkTurnEnd();
 }
 
@@ -743,7 +610,7 @@ async function endConversation(){
   let pa={posture:0,eyes:0,composure:0,engagement:0};
   if(STATE.presenceHistory.length){for(const s of STATE.presenceHistory){pa.posture+=s.posture;pa.eyes+=s.eyes;pa.composure+=s.composure;pa.engagement+=s.engagement;}
     const n=STATE.presenceHistory.length;pa.posture=Math.round(pa.posture/n);pa.eyes=Math.round(pa.eyes/n);pa.composure=Math.round(pa.composure/n);pa.engagement=Math.round(pa.engagement/n);}
-  const prompt=`Conversation coach. Scenario: ${SCENARIOS[STATE.scenario].title}.\n\nTRANSCRIPT:\n${tr}\n\n${STATE.webcamOn?`PRESENCE: Posture ${pa.posture}, Eyes ${pa.eyes}, Composure ${pa.composure}, Engagement ${pa.engagement}`:'No webcam.'}\n\nJSON only (no backticks):\n{"content_grade":"A-F","presence_grade":"A-F or N/A","rapport_grade":"A-F","overall_grade":"A-F","feedback":"2-3 sentences of specific actionable feedback."}`;
+  const prompt=`Conversation coach. Scenario: ${SCENARIOS[STATE.scenario].title}.\n\nTRANSCRIPT:\n${tr}\n\n${STATE.webcamOn?`PRESENCE: Posture ${pa.posture}, Eyes ${pa.eyes}, Composure ${pa.composure}, Engagement ${pa.engagement}`:'No webcam.'}\n\nJSON only (no backticks):\n{"content_grade":"A-F","presence_grade":"A-F or N/A","rapport_grade":"A-F","overall_grade":"A-F","feedback":"3-4 sentences of specific actionable feedback. What did they do well? What are the top 2 things to improve? Be specific about moments in the conversation."}`;
   const result=await callClaude([{role:'user',content:prompt}],'Respond only with JSON. Be honest but constructive.');
   let g={content_grade:'?',presence_grade:'N/A',rapport_grade:'?',overall_grade:'?',feedback:'Unable to generate feedback.'};
   if(result){try{g=JSON.parse(result.replace(/```json|```/g,'').trim());}catch(e){}}
@@ -757,16 +624,47 @@ async function endConversation(){
 }
 
 // ============================================================
+// PASSWORD GATE
+// ============================================================
+function checkPassword(){
+  const input=document.getElementById('passInput').value.trim();
+  if(input===ACCESS_CODE){
+    document.getElementById('scenarioGrid').classList.add('unlocked');
+    document.getElementById('camToggle').classList.add('unlocked');
+    document.getElementById('passError').textContent='';
+    document.querySelector('.pass-gate').style.display='none';
+  }else{
+    document.getElementById('passError').textContent='Wrong code. Try again.';
+    document.getElementById('passInput').value='';
+  }
+}
+
+// ============================================================
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded',()=>{
-  if(window.speechSynthesis)speechSynthesis.getVoices();
+  if(window.speechSynthesis) speechSynthesis.getVoices();
+
+  // Password gate
+  document.getElementById('passBtn').addEventListener('click',checkPassword);
+  document.getElementById('passInput').addEventListener('keydown',e=>{if(e.key==='Enter')checkPassword();});
+
+  // Webcam
   document.getElementById('camToggle').addEventListener('click',()=>{if(!STATE.webcamOn)initWebcam();});
+
+  // Scenarios
   document.querySelectorAll('.scenario-card').forEach(c=>c.addEventListener('click',()=>startScenario(c.dataset.scenario)));
+
+  // Mic (Deepgram)
   document.getElementById('micBtn').addEventListener('click',()=>{if(STATE.isRecording)stopRecording();else startRecording();});
+
+  // Text input
   document.getElementById('sendBtn').addEventListener('click',()=>{const t=document.getElementById('userInput').value.trim();if(t){document.getElementById('userInput').value='';processTextInput(t);}});
   document.getElementById('userInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const t=e.target.value.trim();if(t){e.target.value='';processTextInput(t);}}});
+
+  // Quit
   document.getElementById('quitBtn').addEventListener('click',quitConversation);
+
   initThree();renderLoop();
 });
 </script>
