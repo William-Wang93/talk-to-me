@@ -66,8 +66,8 @@
   .send-btn{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-family:'VT323',monospace;font-size:15px;padding:0 14px;height:36px;cursor:pointer;letter-spacing:1px;border-radius:2px;}
   .send-btn:hover{background:var(--accent);color:var(--bg);}
   .send-btn:disabled{opacity:0.3;cursor:not-allowed;}
-  .input-hint{font-size:9px;color:var(--muted);margin-top:5px;font-family:'VT323',monospace;letter-spacing:0.5px;text-align:center;}
-  .input-hint .rec-text{color:var(--danger);}
+  .input-hint{font-size:12px;color:var(--muted);margin-top:5px;font-family:'VT323',monospace;letter-spacing:0.5px;text-align:center;min-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .input-hint .rec-text{color:var(--danger);font-size:14px;}
   /* Audio viz bar */
   .audio-bar{position:absolute;bottom:-6px;left:4px;right:4px;height:3px;background:var(--bg);border-radius:2px;overflow:hidden;}
   .audio-bar-fill{height:100%;background:var(--danger);width:0%;transition:width 0.05s;}
@@ -529,6 +529,8 @@ function startRecording(){
   }
 
   STATE.isRecording=true;
+  STATE.finalTranscript='';
+  STATE.interimTranscript='';
   document.getElementById('micBtn').classList.add('rec');
   document.getElementById('micIcon').textContent='\u23F9';
   document.getElementById('inputHint').innerHTML='<span class="rec-text">LISTENING... click mic to stop & send</span>';
@@ -539,24 +541,22 @@ function startRecording(){
   recog.interimResults=true;
   recog.lang='en-US';
 
-  let finalTranscript='';
-  let interimTranscript='';
-
   recog.onresult=(e)=>{
-    interimTranscript='';
+    STATE.interimTranscript='';
     for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal) finalTranscript+=e.results[i][0].transcript;
-      else interimTranscript+=e.results[i][0].transcript;
+      if(e.results[i].isFinal) STATE.finalTranscript+=e.results[i][0].transcript;
+      else STATE.interimTranscript+=e.results[i][0].transcript;
     }
-    const display=(finalTranscript+interimTranscript).trim();
-    document.getElementById('inputHint').innerHTML='<span class="rec-text">'+(display.substring(0,80)||'LISTENING...')+'</span>';
-    // Pulse the audio bar based on whether we're getting words
+    const display=(STATE.finalTranscript+STATE.interimTranscript).trim();
+    document.getElementById('inputHint').innerHTML='<span class="rec-text">'+(display||'LISTENING...')+'</span>';
     document.getElementById('audioBarFill').style.width=(display.length>0?'70':'30')+'%';
   };
 
   recog.onend=()=>{
-    // If user didn't manually stop, auto-finalize
-    if(STATE.isRecording) finishRecording(finalTranscript||interimTranscript);
+    // Only auto-finalize if user didn't manually stop (stopRecording handles it)
+    if(STATE.isRecording){
+      finishRecording(STATE.finalTranscript||STATE.interimTranscript);
+    }
   };
 
   recog.onerror=(e)=>{
@@ -576,8 +576,12 @@ function startRecording(){
 
 function stopRecording(){
   if(STATE.recognition&&STATE.isRecording){
-    STATE.isRecording=false; // prevent onend from double-firing
+    // Grab transcript before stopping
+    const text=STATE.finalTranscript||STATE.interimTranscript||'';
+    STATE.isRecording=false;
     STATE.recognition.stop();
+    STATE.recognition=null;
+    finishRecording(text);
   }
 }
 
@@ -590,7 +594,7 @@ function finishRecording(text){
 
   const cleaned=text.trim();
   if(cleaned){
-    document.getElementById('inputHint').textContent='Sending: "'+cleaned.substring(0,50)+'..."';
+    document.getElementById('inputHint').textContent='Sending...';
     processTextInput(cleaned);
   } else {
     document.getElementById('inputHint').textContent='No speech detected. Try again or type.';
