@@ -605,7 +605,7 @@ Respond ONLY with JSON (no markdown, no backticks):
 {"transcription":"exact words the user said","dialogue":"your in-character response","reaction":"one of: interested, skeptical, pleased, surprised, disappointed, nodding, shaking, neutral","inner_thought":"one sentence of what you really think about this person"}`;
 
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
+    const r=await fetch('/api/chat',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',max_tokens:1000,
@@ -707,7 +707,7 @@ function startPresence(){
 // CLAUDE API (text path)
 // ============================================================
 async function callClaude(msgs,sys){
-  try{const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+  try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:msgs})});
     const d=await r.json();return d.content?.[0]?.text||null;}catch(e){console.error('API:',e);return null;}
 }
