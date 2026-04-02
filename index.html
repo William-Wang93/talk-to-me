@@ -3,120 +3,168 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TALK TO ME</title>
+<title>Talk To Me</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=VT323&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  :root{--bg:#0a0a0c;--panel:#111115;--border:#2a2a35;--text:#c8c8d0;--accent:#4a9;--accent-dim:#2a6648;--warn:#c84;--danger:#c55;--muted:#555568;}
-  body{background:var(--bg);color:var(--text);font-family:'Space Mono',monospace;height:100vh;overflow:hidden;}
+  :root{
+    --bg:#faf6f0;
+    --panel:#fff;
+    --border:#e8e0d4;
+    --text:#3d3529;
+    --text-light:#8a7e6e;
+    --accent:#c4703f;
+    --accent-light:#f0d4be;
+    --accent-hover:#a85a2f;
+    --green:#5a8a6a;
+    --green-light:#d4e8d8;
+    --warn:#c89844;
+    --warn-light:#f5e6c8;
+    --danger:#c05050;
+    --danger-light:#f0d0d0;
+    --shadow:0 2px 12px rgba(60,45,25,0.06);
+    --shadow-lg:0 8px 30px rgba(60,45,25,0.1);
+    --radius:12px;
+    --radius-sm:8px;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;height:100vh;overflow:hidden;}
+
+  /* ---- MAIN APP LAYOUT ---- */
   .app{display:grid;grid-template-rows:auto 1fr auto;height:100vh;}
-  .top-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
-  .logo{font-family:'VT323',monospace;font-size:22px;color:var(--accent);letter-spacing:3px;}
-  .logo span{color:var(--muted);}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--border);box-shadow:var(--shadow);}
+  .logo{font-family:'VT323',monospace;font-size:24px;color:var(--accent);letter-spacing:2px;}
+  .logo span{color:var(--text-light);font-size:14px;font-family:'Outfit',sans-serif;font-weight:300;margin-left:6px;letter-spacing:0;}
   .top-right{display:flex;gap:10px;align-items:center;}
-  .status-pills{display:flex;gap:8px;}
-  .pill{font-size:10px;padding:3px 8px;border-radius:2px;background:var(--bg);border:1px solid var(--border);font-family:'Space Mono',monospace;}
-  .pill.active{border-color:var(--accent);color:var(--accent);}
-  .pill.warn{border-color:var(--warn);color:var(--warn);}
-  .pill.rec{border-color:var(--danger);color:var(--danger);animation:pulse 1s infinite;}
-  @keyframes pulse{50%{opacity:0.5;}}
-  .quit-btn{font-size:10px;padding:3px 10px;border-radius:2px;background:none;border:1px solid var(--danger);color:var(--danger);font-family:'Space Mono',monospace;cursor:pointer;transition:all 0.2s;}
-  .quit-btn:hover{background:var(--danger);color:var(--bg);}
-  .main{display:grid;grid-template-columns:1fr 320px;overflow:hidden;position:relative;}
-  .viewport{position:relative;background:#0d0d10;overflow:hidden;}
+  .status-pills{display:flex;gap:6px;}
+  .pill{font-size:11px;padding:4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:'Outfit',sans-serif;font-weight:500;color:var(--text-light);}
+  .pill.active{border-color:var(--green);color:var(--green);background:var(--green-light);}
+  .pill.warn{border-color:var(--warn);color:var(--warn);background:var(--warn-light);}
+  .pill.rec{border-color:var(--danger);color:var(--danger);background:var(--danger-light);animation:pulse 1.2s ease-in-out infinite;}
+  @keyframes pulse{50%{opacity:0.6;}}
+  .quit-btn{font-size:11px;padding:5px 14px;border-radius:20px;background:none;border:1px solid var(--danger);color:var(--danger);font-family:'Outfit',sans-serif;font-weight:500;cursor:pointer;transition:all 0.2s;}
+  .quit-btn:hover{background:var(--danger);color:#fff;}
+
+  /* ---- MAIN GRID ---- */
+  .main{display:grid;grid-template-columns:1fr 340px;overflow:hidden;position:relative;}
+
+  /* ---- 3D VIEWPORT ---- */
+  .viewport{position:relative;background:#2a2218;overflow:hidden;border-radius:0;}
   .viewport canvas{width:100%!important;height:100%!important;display:block;}
-  .npc-dialogue{position:absolute;bottom:40px;left:0;right:320px;background:linear-gradient(transparent,rgba(0,0,0,0.92) 30%);padding:50px 28px 20px;display:none;z-index:10;}
+
+  /* ---- NPC DIALOGUE ---- */
+  .npc-dialogue{position:absolute;bottom:40px;left:0;right:340px;background:linear-gradient(transparent,rgba(30,25,18,0.92) 35%);padding:50px 28px 20px;display:none;z-index:10;}
   .npc-dialogue.visible{display:block;}
-  .npc-name{font-family:'VT323',monospace;font-size:18px;color:var(--accent);margin-bottom:6px;letter-spacing:2px;}
-  .npc-text{font-size:13px;line-height:1.6;color:#ddd;max-width:620px;}
-  .npc-text .cursor{display:inline-block;width:8px;height:14px;background:var(--accent);animation:blink 0.6s infinite;vertical-align:text-bottom;margin-left:2px;}
+  .npc-name{font-family:'VT323',monospace;font-size:18px;color:var(--accent-light);margin-bottom:6px;letter-spacing:2px;}
+  .npc-text{font-size:14px;line-height:1.7;color:#ede6da;max-width:620px;font-weight:300;}
+  .npc-text .cursor{display:inline-block;width:8px;height:15px;background:var(--accent-light);animation:blink 0.6s infinite;vertical-align:text-bottom;margin-left:2px;border-radius:1px;}
   @keyframes blink{50%{opacity:0;}}
+
+  /* ---- SIDE PANEL ---- */
   .side-panel{display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--panel);overflow:hidden;}
-  .panel-section{padding:10px 12px;border-bottom:1px solid var(--border);}
-  .panel-section h3{font-family:'VT323',monospace;font-size:14px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
-  .webcam-container{position:relative;width:100%;aspect-ratio:4/3;background:#000;border:1px solid var(--border);overflow:hidden;}
-  .webcam-container video{width:100%;height:100%;object-fit:cover;filter:contrast(1.1) saturate(0.8);}
+  .panel-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+  .panel-section h3{font-size:11px;color:var(--text-light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-weight:600;}
+
+  /* ---- WEBCAM ---- */
+  .webcam-container{position:relative;width:100%;aspect-ratio:4/3;background:#f0ebe3;border:1px solid var(--border);overflow:hidden;border-radius:var(--radius-sm);}
+  .webcam-container video{width:100%;height:100%;object-fit:cover;}
   .webcam-container canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:none;}
-  .webcam-overlay{position:absolute;top:0;left:0;right:0;bottom:0;border:2px solid transparent;transition:border-color 0.3s;pointer-events:none;}
-  .webcam-overlay.good{border-color:var(--accent);} .webcam-overlay.warn{border-color:var(--warn);} .webcam-overlay.bad{border-color:var(--danger);}
-  .webcam-label{position:absolute;bottom:4px;left:4px;font-size:10px;font-family:'VT323',monospace;color:var(--accent);background:rgba(0,0,0,0.7);padding:1px 6px;letter-spacing:1px;}
-  .cam-off-msg{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:11px;color:var(--muted);text-align:center;padding:12px;line-height:1.5;}
-  .meters{display:flex;flex-direction:column;gap:6px;}
-  .meter{display:flex;align-items:center;gap:8px;}
-  .meter-label{font-size:12px;width:75px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:'VT323',monospace;}
-  .meter-bar{flex:1;height:5px;background:var(--bg);border-radius:1px;overflow:hidden;}
-  .meter-fill{height:100%;background:var(--accent);transition:width 0.5s ease;width:0%;}
+  .webcam-overlay{position:absolute;top:0;left:0;right:0;bottom:0;border:2px solid transparent;transition:border-color 0.3s;pointer-events:none;border-radius:var(--radius-sm);}
+  .webcam-overlay.good{border-color:var(--green);} .webcam-overlay.warn{border-color:var(--warn);} .webcam-overlay.bad{border-color:var(--danger);}
+  .webcam-label{position:absolute;bottom:6px;left:6px;font-size:10px;font-weight:600;color:var(--green);background:rgba(255,255,255,0.85);padding:2px 8px;border-radius:4px;letter-spacing:0.5px;}
+  .cam-off-msg{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:12px;color:var(--text-light);text-align:center;padding:16px;line-height:1.5;font-weight:300;}
+
+  /* ---- PRESENCE METERS ---- */
+  .meters{display:flex;flex-direction:column;gap:8px;}
+  .meter{display:flex;align-items:center;gap:10px;}
+  .meter-label{font-size:11px;width:78px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);font-weight:500;}
+  .meter-bar{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;}
+  .meter-fill{height:100%;background:var(--green);transition:width 0.5s ease;width:0%;border-radius:3px;}
   .meter-fill.warn{background:var(--warn);} .meter-fill.bad{background:var(--danger);}
-  .meter-val{font-size:10px;width:28px;text-align:right;font-family:'VT323',monospace;color:var(--text);}
-  .chat-log{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
-  .chat-msg{font-size:11px;line-height:1.5;padding:6px 10px;border-radius:3px;max-width:95%;}
-  .chat-msg.system{color:var(--muted);font-style:italic;font-size:10px;}
-  .chat-msg.user{background:rgba(68,170,136,0.1);border:1px solid var(--accent-dim);align-self:flex-end;color:#bde0d0;}
-  .chat-msg.npc{background:rgba(255,255,255,0.03);border:1px solid var(--border);}
-  .chat-msg.reaction{background:rgba(200,180,100,0.06);border:1px solid rgba(200,180,100,0.15);color:var(--warn);font-size:10px;font-style:italic;}
-  .input-area{padding:10px 12px;border-top:1px solid var(--border);background:var(--panel);}
-  .input-controls{display:flex;gap:6px;align-items:center;}
-  .mic-btn{width:44px;height:44px;border-radius:50%;border:2px solid var(--accent);background:var(--accent-dim);color:var(--accent);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;position:relative;}
-  .mic-btn:hover{background:var(--accent);color:var(--bg);}
-  .mic-btn.rec{border-color:var(--danger);background:rgba(200,80,80,0.25);color:var(--danger);animation:pulse 1s infinite;}
-  .mic-btn:disabled{opacity:0.3;cursor:not-allowed;animation:none;}
-  .input-text{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:8px 10px;border-radius:2px;outline:none;height:36px;}
-  .input-text:focus{border-color:var(--accent);}
-  .send-btn{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-family:'VT323',monospace;font-size:15px;padding:0 14px;height:36px;cursor:pointer;letter-spacing:1px;border-radius:2px;}
-  .send-btn:hover{background:var(--accent);color:var(--bg);}
-  .send-btn:disabled{opacity:0.3;cursor:not-allowed;}
-  .input-hint{font-size:12px;color:var(--muted);margin-top:5px;font-family:'VT323',monospace;letter-spacing:0.5px;text-align:center;min-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .input-hint .rec-text{color:var(--danger);font-size:14px;}
-  .audio-bar{position:absolute;bottom:-6px;left:4px;right:4px;height:3px;background:var(--bg);border-radius:2px;overflow:hidden;}
-  .audio-bar-fill{height:100%;background:var(--danger);width:0%;transition:width 0.05s;}
-  .bottom-bar{display:flex;justify-content:space-between;align-items:center;padding:6px 16px;border-top:1px solid var(--border);background:var(--panel);font-size:11px;color:var(--muted);}
-  .score-display{font-family:'VT323',monospace;font-size:18px;color:var(--accent);letter-spacing:2px;}
-  /* Start screen */
+  .meter-val{font-size:11px;width:28px;text-align:right;font-weight:600;color:var(--text);}
+
+  /* ---- CHAT LOG ---- */
+  .chat-log{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  .chat-msg{font-size:12px;line-height:1.6;padding:8px 12px;border-radius:var(--radius-sm);max-width:92%;font-weight:400;}
+  .chat-msg.system{color:var(--text-light);font-style:italic;font-size:11px;font-weight:300;}
+  .chat-msg.user{background:var(--accent-light);border:none;align-self:flex-end;color:var(--accent-hover);}
+  .chat-msg.npc{background:var(--bg);border:none;color:var(--text);}
+  .chat-msg.reaction{background:var(--warn-light);border:none;color:#8a6e30;font-size:11px;font-style:italic;font-weight:300;}
+
+  /* ---- INPUT AREA ---- */
+  .input-area{padding:12px 16px;border-top:1px solid var(--border);background:var(--panel);}
+  .input-controls{display:flex;gap:8px;align-items:center;}
+  .mic-btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(196,112,63,0.3);}
+  .mic-btn:hover{background:var(--accent-hover);transform:scale(1.05);}
+  .mic-btn.rec{background:var(--danger);box-shadow:0 2px 12px rgba(192,80,80,0.4);animation:pulse 1.2s ease-in-out infinite;}
+  .mic-btn:disabled{opacity:0.4;cursor:not-allowed;animation:none;transform:none;}
+  .input-text{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;padding:10px 14px;border-radius:24px;outline:none;height:42px;font-weight:400;}
+  .input-text:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(196,112,63,0.1);}
+  .input-text::placeholder{color:var(--text-light);}
+  .send-btn{background:var(--accent);border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;padding:0 20px;height:42px;cursor:pointer;letter-spacing:0.5px;border-radius:24px;transition:all 0.2s;}
+  .send-btn:hover{background:var(--accent-hover);}
+  .send-btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .input-hint{font-size:11px;color:var(--text-light);margin-top:6px;letter-spacing:0.3px;text-align:center;min-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:300;}
+  .input-hint .rec-text{color:var(--danger);font-weight:500;font-size:12px;}
+  .audio-bar{position:absolute;bottom:-5px;left:6px;right:6px;height:3px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden;}
+  .audio-bar-fill{height:100%;background:#fff;width:0%;transition:width 0.05s;border-radius:2px;}
+
+  /* ---- BOTTOM BAR ---- */
+  .bottom-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 20px;border-top:1px solid var(--border);background:var(--panel);font-size:12px;color:var(--text-light);}
+  .score-display{font-family:'VT323',monospace;font-size:20px;color:var(--accent);letter-spacing:2px;}
+
+  /* ---- START SCREEN ---- */
   .start-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:20px;}
   .start-screen.hidden{display:none;}
-  .start-title{font-family:'VT323',monospace;font-size:64px;color:var(--accent);letter-spacing:8px;text-shadow:0 0 40px rgba(68,170,136,0.15);}
-  .start-sub{font-size:13px;color:var(--muted);max-width:440px;text-align:center;line-height:1.7;}
-  .start-sub em{color:var(--text);font-style:normal;}
-  /* Password gate */
+  .start-title{font-family:'VT323',monospace;font-size:72px;color:var(--accent);letter-spacing:4px;}
+  .start-sub{font-size:15px;color:var(--text-light);max-width:460px;text-align:center;line-height:1.8;font-weight:300;}
+  .start-sub em{color:var(--text);font-style:normal;font-weight:500;}
+
+  /* ---- PASSWORD GATE ---- */
   .pass-gate{display:flex;gap:8px;align-items:center;margin-bottom:4px;}
-  .pass-gate input{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:12px;padding:8px 12px;border-radius:2px;outline:none;width:200px;text-align:center;}
-  .pass-gate input:focus{border-color:var(--accent);}
-  .pass-gate button{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-family:'VT323',monospace;font-size:16px;padding:6px 16px;cursor:pointer;border-radius:2px;}
-  .pass-gate button:hover{background:var(--accent);color:var(--bg);}
-  .pass-error{color:var(--danger);font-size:11px;font-family:'VT323',monospace;height:16px;}
-  .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:500px;width:100%;padding:0 20px;display:none;}
+  .pass-gate input{background:#fff;border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;padding:10px 16px;border-radius:24px;outline:none;width:220px;text-align:center;font-weight:400;}
+  .pass-gate input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(196,112,63,0.1);}
+  .pass-gate input::placeholder{color:var(--text-light);}
+  .pass-gate button{background:var(--accent);border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;padding:10px 24px;cursor:pointer;border-radius:24px;transition:all 0.2s;}
+  .pass-gate button:hover{background:var(--accent-hover);}
+  .pass-error{color:var(--danger);font-size:12px;height:16px;font-weight:500;}
+
+  /* ---- SCENARIO GRID ---- */
+  .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:520px;width:100%;padding:0 20px;display:none;}
   .scenario-grid.unlocked{display:grid;}
-  .scenario-card{background:var(--panel);border:1px solid var(--border);padding:16px;cursor:pointer;transition:all 0.2s;border-radius:2px;}
-  .scenario-card:hover{border-color:var(--accent);background:rgba(68,170,136,0.05);}
-  .scenario-card h4{font-family:'VT323',monospace;font-size:18px;color:var(--accent);margin-bottom:6px;letter-spacing:1px;}
-  .scenario-card p{font-size:11px;color:var(--muted);line-height:1.5;}
-  .cam-toggle{font-size:12px;color:var(--muted);cursor:pointer;padding:6px 14px;border:1px solid var(--border);background:none;font-family:'Space Mono',monospace;border-radius:2px;transition:all 0.2s;display:none;}
+  .scenario-card{background:#fff;border:1px solid var(--border);padding:20px;cursor:pointer;transition:all 0.25s;border-radius:var(--radius);box-shadow:var(--shadow);}
+  .scenario-card:hover{border-color:var(--accent);box-shadow:var(--shadow-lg);transform:translateY(-2px);}
+  .scenario-card h4{font-family:'VT323',monospace;font-size:20px;color:var(--accent);margin-bottom:6px;letter-spacing:1px;}
+  .scenario-card p{font-size:12px;color:var(--text-light);line-height:1.6;font-weight:300;}
+
+  /* ---- WEBCAM TOGGLE ---- */
+  .cam-toggle{font-size:12px;color:var(--text-light);cursor:pointer;padding:8px 18px;border:1px solid var(--border);background:#fff;font-family:'Outfit',sans-serif;font-weight:400;border-radius:24px;transition:all 0.2s;display:none;}
   .cam-toggle.unlocked{display:block;}
   .cam-toggle:hover{border-color:var(--accent);color:var(--accent);}
-  /* Results */
-  .results-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:90;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+
+  /* ---- RESULTS OVERLAY ---- */
+  .results-overlay{position:fixed;inset:0;background:rgba(250,246,240,0.96);z-index:90;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;backdrop-filter:blur(8px);}
   .results-overlay.visible{display:flex;}
-  .results-overlay h2{font-family:'VT323',monospace;font-size:40px;color:var(--accent);letter-spacing:4px;}
-  .results-grades{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:400px;width:100%;}
-  .grade-card{background:var(--panel);border:1px solid var(--border);padding:14px;text-align:center;border-radius:2px;}
-  .grade-card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
-  .grade-card .grade{font-family:'VT323',monospace;font-size:36px;color:var(--accent);}
-  .results-feedback{max-width:450px;font-size:12px;line-height:1.7;color:var(--text);text-align:center;padding:0 20px;}
-  .results-overlay button{margin-top:10px;background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);font-family:'VT323',monospace;font-size:18px;padding:8px 30px;cursor:pointer;letter-spacing:2px;border-radius:2px;}
-  .results-overlay button:hover{background:var(--accent);color:var(--bg);}
-  .scanlines{position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);}
+  .results-overlay h2{font-family:'VT323',monospace;font-size:44px;color:var(--accent);letter-spacing:3px;}
+  .results-grades{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:420px;width:100%;}
+  .grade-card{background:#fff;border:1px solid var(--border);padding:18px;text-align:center;border-radius:var(--radius);box-shadow:var(--shadow);}
+  .grade-card .label{font-size:10px;color:var(--text-light);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;font-weight:600;}
+  .grade-card .grade{font-family:'VT323',monospace;font-size:40px;color:var(--accent);}
+  .results-feedback{max-width:480px;font-size:14px;line-height:1.8;color:var(--text);text-align:center;padding:0 20px;font-weight:300;}
+  .results-overlay button{margin-top:8px;background:var(--accent);border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;padding:12px 36px;cursor:pointer;letter-spacing:0.5px;border-radius:24px;transition:all 0.2s;box-shadow:0 2px 8px rgba(196,112,63,0.3);}
+  .results-overlay button:hover{background:var(--accent-hover);transform:translateY(-1px);}
+
+  /* ---- NO MORE SCANLINES ---- */
 </style>
 </head>
 <body>
-<div class="scanlines"></div>
 
 <!-- START SCREEN WITH PASSWORD GATE -->
 <div class="start-screen" id="startScreen">
-  <div class="start-title">TALK TO ME</div>
-  <div class="start-sub">A low-poly conversation simulator. <em>Speak or type</em> to practice conversations. Claude judges what you say and how you deliver it.</div>
+  <div class="start-title">Talk To Me</div>
+  <div class="start-sub">A friendly conversation simulator. <em>Speak or type</em> to practice real conversations with AI characters who react to what you say and how you say it.</div>
   <div class="pass-gate">
     <input type="password" id="passInput" placeholder="Enter access code" />
-    <button id="passBtn">ENTER</button>
+    <button id="passBtn">Enter</button>
   </div>
   <div class="pass-error" id="passError"></div>
   <button class="cam-toggle" id="camToggle">Enable Webcam (Optional)</button>
@@ -130,22 +178,22 @@
 
 <!-- RESULTS -->
 <div class="results-overlay" id="resultsOverlay">
-  <h2>CONVERSATION OVER</h2>
+  <h2>Conversation Over</h2>
   <div class="results-grades" id="resultsGrades"></div>
   <div class="results-feedback" id="resultsFeedback"></div>
-  <button onclick="location.reload()">TRY AGAIN</button>
+  <button onclick="location.reload()">Try Again</button>
 </div>
 
 <!-- MAIN APP -->
 <div class="app" id="mainApp" style="display:none;">
   <div class="top-bar">
-    <div class="logo">TALK TO ME <span>v0.4</span></div>
+    <div class="logo">Talk To Me <span>v0.5</span></div>
     <div class="top-right">
       <div class="status-pills">
-        <div class="pill" id="pillCam">CAM OFF</div>
-        <div class="pill active" id="pillTurn">YOUR TURN</div>
+        <div class="pill" id="pillCam">Cam Off</div>
+        <div class="pill active" id="pillTurn">Your Turn</div>
       </div>
-      <button class="quit-btn" id="quitBtn">EXIT</button>
+      <button class="quit-btn" id="quitBtn">Exit</button>
     </div>
   </div>
   <div class="main">
@@ -178,9 +226,9 @@
             <div class="audio-bar"><div class="audio-bar-fill" id="audioBarFill"></div></div>
           </button>
           <input type="text" class="input-text" id="userInput" placeholder="Type or press mic to speak..." />
-          <button class="send-btn" id="sendBtn">SEND</button>
+          <button class="send-btn" id="sendBtn">Send</button>
         </div>
-        <div class="input-hint" id="inputHint">Click mic to record your voice, or type below</div>
+        <div class="input-hint" id="inputHint">Click mic to record your voice, or type here</div>
       </div>
     </div>
   </div>
@@ -200,7 +248,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const ACCESS_CODE = 'talktome2026'; // Change this to whatever you want
+const ACCESS_CODE = 'talktome2026';
 const MODEL_URL = '';
 
 // ============================================================
@@ -211,11 +259,8 @@ const STATE = {
   conversationHistory:[],presenceScores:{posture:0,eyes:0,composure:0,engagement:0},
   presenceHistory:[],npcName:'',npcPersonality:'',isProcessing:false,
   faceDetected:false,videoStream:null,talking:false,
-  // Voice recording (Deepgram)
   isRecording:false,mediaRecorder:null,audioChunks:[],
-  // Model
   externalModel:null,mixer:null,
-  // Animation
   anim:{headTiltX:0,headTiltY:0,headTiltZ:0,leanZ:0,browLY:0.075,browRY:0.075,browLZ:0,browRZ:0,
         mouthScaleX:1,mouthScaleYBase:1,eyeSquint:1,headNodPhase:0,headShakePhase:0,surprise:0}
 };
@@ -236,7 +281,7 @@ const SCENARIOS = {
 };
 
 // ============================================================
-// THREE.JS SCENE (same as before)
+// THREE.JS SCENE
 // ============================================================
 let scene,camera,threeRenderer,clock;
 let npcGroup,headGroup,mouthMesh,torsoMesh,neckMesh;
@@ -401,7 +446,7 @@ async function startRecording(){
     STATE.isRecording=true;
     document.getElementById('micBtn').classList.add('rec');
     document.getElementById('micIcon').textContent='\u23F9';
-    document.getElementById('inputHint').innerHTML='<span class="rec-text">RECORDING... click mic to stop & send</span>';
+    document.getElementById('inputHint').innerHTML='<span class="rec-text">Recording... click mic to stop & send</span>';
     document.getElementById('audioBarFill').style.width='60%';
   }catch(e){
     console.error('Mic error:',e);
@@ -415,7 +460,7 @@ function stopRecording(){
     STATE.mediaRecorder.stop();
     document.getElementById('micBtn').classList.remove('rec');
     document.getElementById('micIcon').textContent='\u{1F3A4}';
-    document.getElementById('inputHint').textContent='Transcribing with Deepgram...';
+    document.getElementById('inputHint').textContent='Transcribing...';
     document.getElementById('audioBarFill').style.width='0%';
   }
 }
@@ -423,26 +468,21 @@ function stopRecording(){
 async function transcribeAndSend(blob,mimeType){
   document.getElementById('micBtn').disabled=true;
   document.getElementById('sendBtn').disabled=true;
-  document.getElementById('pillTurn').textContent='TRANSCRIBING';
+  document.getElementById('pillTurn').textContent='Transcribing';
   document.getElementById('pillTurn').className='pill warn';
-
   try{
-    // Convert blob to base64
     const base64=await new Promise((resolve,reject)=>{
       const reader=new FileReader();
       reader.onloadend=()=>resolve(reader.result.split(',')[1]);
       reader.onerror=reject;
       reader.readAsDataURL(blob);
     });
-
-    // Send to our Deepgram proxy
     const r=await fetch('/api/transcribe',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({audio:base64,mimeType:mimeType})
     });
     const data=await r.json();
-
     if(data.transcript&&data.transcript.trim()){
       console.log('[TALK TO ME] Deepgram transcript:',data.transcript);
       document.getElementById('inputHint').textContent='You said: "'+data.transcript.substring(0,60)+'"';
@@ -451,7 +491,7 @@ async function transcribeAndSend(blob,mimeType){
       document.getElementById('inputHint').textContent='No speech detected. Try again or type.';
       document.getElementById('micBtn').disabled=false;
       document.getElementById('sendBtn').disabled=false;
-      document.getElementById('pillTurn').textContent='YOUR TURN';
+      document.getElementById('pillTurn').textContent='Your Turn';
       document.getElementById('pillTurn').className='pill active';
     }
   }catch(e){
@@ -459,9 +499,9 @@ async function transcribeAndSend(blob,mimeType){
     addChat('system','Transcription failed. Try typing instead.');
     document.getElementById('micBtn').disabled=false;
     document.getElementById('sendBtn').disabled=false;
-    document.getElementById('pillTurn').textContent='YOUR TURN';
+    document.getElementById('pillTurn').textContent='Your Turn';
     document.getElementById('pillTurn').className='pill active';
-    document.getElementById('inputHint').textContent='Click mic to record your voice, or type below';
+    document.getElementById('inputHint').textContent='Click mic to record your voice, or type here';
   }
 }
 
@@ -493,7 +533,7 @@ async function initWebcam(){
     const stream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:'user'}});
     STATE.videoStream=stream;const v=document.getElementById('webcamVideo');v.srcObject=stream;v.style.display='block';
     document.getElementById('camOffMsg').style.display='none';STATE.webcamOn=true;
-    document.getElementById('pillCam').className='pill active';document.getElementById('pillCam').textContent='CAM ON';
+    document.getElementById('pillCam').className='pill active';document.getElementById('pillCam').textContent='Cam On';
     document.getElementById('camToggle').textContent='Webcam Enabled';startPresence();
   }catch(e){document.getElementById('camOffMsg').innerHTML='Camera denied<br>Presence disabled';}
 }
@@ -565,7 +605,7 @@ function updateTurn(){document.getElementById('turnInfo').textContent=`Turn ${ST
 async function processTextInput(text){
   if(!text||STATE.isProcessing)return;
   STATE.isProcessing=true;document.getElementById('micBtn').disabled=true;document.getElementById('sendBtn').disabled=true;
-  document.getElementById('pillTurn').textContent='NPC THINKING';document.getElementById('pillTurn').className='pill warn';
+  document.getElementById('pillTurn').textContent='Thinking...';document.getElementById('pillTurn').className='pill warn';
   STATE.turn++;updateTurn();addChat('user','You: '+text);
   STATE.conversationHistory.push({role:'user',content:text});
   let pn='';
@@ -588,13 +628,13 @@ async function processTextInput(text){
     }catch(e){console.warn('[TALK TO ME] JSON parse failed:',e);STATE.conversationHistory.push({role:'assistant',content:resp});setReaction('neutral');typeAndSpeak(resp,SCENARIOS[STATE.scenario].voice);addChat('npc',STATE.npcName+': '+resp);}
   }else{addChat('system','[Connection error]');STATE.turn--;updateTurn();}
   STATE.isProcessing=false;document.getElementById('micBtn').disabled=false;document.getElementById('sendBtn').disabled=false;
-  document.getElementById('inputHint').textContent='Click mic to record your voice, or type below';
+  document.getElementById('inputHint').textContent='Click mic to record your voice, or type here';
   checkTurnEnd();
 }
 
 function checkTurnEnd(){
-  if(STATE.turn>=STATE.maxTurns){document.getElementById('pillTurn').textContent='JUDGING...';setTimeout(endConversation,2500);}
-  else{document.getElementById('pillTurn').textContent='YOUR TURN';document.getElementById('pillTurn').className='pill active';}
+  if(STATE.turn>=STATE.maxTurns){document.getElementById('pillTurn').textContent='Wrapping up...';setTimeout(endConversation,2500);}
+  else{document.getElementById('pillTurn').textContent='Your Turn';document.getElementById('pillTurn').className='pill active';}
 }
 
 function quitConversation(){
@@ -644,27 +684,14 @@ function checkPassword(){
 // ============================================================
 document.addEventListener('DOMContentLoaded',()=>{
   if(window.speechSynthesis) speechSynthesis.getVoices();
-
-  // Password gate
   document.getElementById('passBtn').addEventListener('click',checkPassword);
   document.getElementById('passInput').addEventListener('keydown',e=>{if(e.key==='Enter')checkPassword();});
-
-  // Webcam
   document.getElementById('camToggle').addEventListener('click',()=>{if(!STATE.webcamOn)initWebcam();});
-
-  // Scenarios
   document.querySelectorAll('.scenario-card').forEach(c=>c.addEventListener('click',()=>startScenario(c.dataset.scenario)));
-
-  // Mic (Deepgram)
   document.getElementById('micBtn').addEventListener('click',()=>{if(STATE.isRecording)stopRecording();else startRecording();});
-
-  // Text input
   document.getElementById('sendBtn').addEventListener('click',()=>{const t=document.getElementById('userInput').value.trim();if(t){document.getElementById('userInput').value='';processTextInput(t);}});
   document.getElementById('userInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const t=e.target.value.trim();if(t){e.target.value='';processTextInput(t);}}});
-
-  // Quit
   document.getElementById('quitBtn').addEventListener('click',quitConversation);
-
   initThree();renderLoop();
 });
 </script>
