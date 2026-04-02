@@ -517,130 +517,84 @@ function renderLoop(){
 }
 
 // ============================================================
-// VOICE RECORDING (MediaRecorder → base64 → Claude)
+// VOICE INPUT (Web Speech API — works on your own domain)
 // ============================================================
-async function startRecording(){
+function startRecording(){
   if(STATE.isProcessing||STATE.isRecording)return;
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    STATE.micStream=stream;
 
-    // Audio analyser for visual feedback
-    const actx=new(window.AudioContext||window.webkitAudioContext)();
-    const src=actx.createMediaStreamSource(stream);
-    STATE.analyser=actx.createAnalyser();STATE.analyser.fftSize=256;
-    STATE.analyserData=new Uint8Array(STATE.analyser.frequencyBinCount);
-    src.connect(STATE.analyser);
-
-    // MediaRecorder
-    const mr=new MediaRecorder(stream,{mimeType:MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm'});
-    STATE.audioChunks=[];
-    mr.ondataavailable=e=>{if(e.data.size>0)STATE.audioChunks.push(e.data);};
-    mr.onstop=async()=>{
-      stream.getTracks().forEach(t=>t.stop());
-      actx.close();
-      const blob=new Blob(STATE.audioChunks,{type:'audio/webm'});
-      STATE.audioChunks=[];
-      // Convert to base64
-      const reader=new FileReader();
-      reader.onloadend=()=>{
-        const base64=reader.result.split(',')[1];
-        handleVoiceInput(base64);
-      };
-      reader.readAsDataURL(blob);
-    };
-    mr.start();
-    STATE.mediaRecorder=mr;STATE.isRecording=true;
-    document.getElementById('micBtn').classList.add('rec');
-    document.getElementById('micIcon').textContent='\u23F9'; // stop icon
-    document.getElementById('inputHint').innerHTML='<span class="rec-text">RECORDING... click mic to stop & send</span>';
-    animateAudioBar();
-  }catch(e){
-    console.error('Mic error:',e);
-    addChat('system','Microphone access denied. Use text input.');
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){
+    addChat('system','Speech recognition not supported in this browser. Use Chrome or Edge.');
+    return;
   }
-}
 
-function stopRecording(){
-  if(STATE.mediaRecorder&&STATE.isRecording){
-    STATE.mediaRecorder.stop();
+  STATE.isRecording=true;
+  document.getElementById('micBtn').classList.add('rec');
+  document.getElementById('micIcon').textContent='\u23F9';
+  document.getElementById('inputHint').innerHTML='<span class="rec-text">LISTENING... click mic to stop & send</span>';
+  document.getElementById('audioBarFill').style.width='50%';
+
+  const recog=new SR();
+  recog.continuous=true;
+  recog.interimResults=true;
+  recog.lang='en-US';
+
+  let finalTranscript='';
+  let interimTranscript='';
+
+  recog.onresult=(e)=>{
+    interimTranscript='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) finalTranscript+=e.results[i][0].transcript;
+      else interimTranscript+=e.results[i][0].transcript;
+    }
+    const display=(finalTranscript+interimTranscript).trim();
+    document.getElementById('inputHint').innerHTML='<span class="rec-text">'+(display.substring(0,80)||'LISTENING...')+'</span>';
+    // Pulse the audio bar based on whether we're getting words
+    document.getElementById('audioBarFill').style.width=(display.length>0?'70':'30')+'%';
+  };
+
+  recog.onend=()=>{
+    // If user didn't manually stop, auto-finalize
+    if(STATE.isRecording) finishRecording(finalTranscript||interimTranscript);
+  };
+
+  recog.onerror=(e)=>{
+    console.log('Speech error:',e.error);
     STATE.isRecording=false;
     document.getElementById('micBtn').classList.remove('rec');
     document.getElementById('micIcon').textContent='\u{1F3A4}';
-    document.getElementById('inputHint').textContent='Processing audio...';
+    document.getElementById('inputHint').textContent='Click mic to record your voice, or type below';
     document.getElementById('audioBarFill').style.width='0%';
+    if(e.error==='not-allowed') addChat('system','Microphone permission denied. Use text input.');
+    else if(e.error!=='aborted') addChat('system','Speech error: '+e.error+'. Try again or type.');
+  };
+
+  recog.start();
+  STATE.recognition=recog;
+}
+
+function stopRecording(){
+  if(STATE.recognition&&STATE.isRecording){
+    STATE.isRecording=false; // prevent onend from double-firing
+    STATE.recognition.stop();
   }
 }
 
-function animateAudioBar(){
-  if(!STATE.isRecording||!STATE.analyser)return;
-  STATE.analyser.getByteFrequencyData(STATE.analyserData);
-  let sum=0;for(let i=0;i<STATE.analyserData.length;i++)sum+=STATE.analyserData[i];
-  const avg=sum/STATE.analyserData.length;
-  document.getElementById('audioBarFill').style.width=Math.min(100,(avg/128)*100)+'%';
-  requestAnimationFrame(animateAudioBar);
-}
+function finishRecording(text){
+  STATE.isRecording=false;
+  STATE.recognition=null;
+  document.getElementById('micBtn').classList.remove('rec');
+  document.getElementById('micIcon').textContent='\u{1F3A4}';
+  document.getElementById('audioBarFill').style.width='0%';
 
-async function handleVoiceInput(audioBase64){
-  // Send audio to Claude for transcription + NPC response in one call
-  STATE.isProcessing=true;
-  document.getElementById('micBtn').disabled=true;
-  document.getElementById('sendBtn').disabled=true;
-  document.getElementById('pillTurn').textContent='TRANSCRIBING...';
-  document.getElementById('pillTurn').className='pill warn';
-
-  let pn='';
-  if(STATE.webcamOn&&STATE.faceDetected){
-    const p=STATE.presenceScores;
-    pn=`\nWEBCAM PRESENCE: Posture ${Math.round(p.posture)}/100, Eye Contact ${Math.round(p.eyes)}/100, Composure ${Math.round(p.composure)}/100, Engagement ${Math.round(p.engagement)}/100.`;
+  const cleaned=text.trim();
+  if(cleaned){
+    document.getElementById('inputHint').textContent='Sending: "'+cleaned.substring(0,50)+'..."';
+    processTextInput(cleaned);
+  } else {
+    document.getElementById('inputHint').textContent='No speech detected. Try again or type.';
   }
-
-  const transcriptionSys=`First, transcribe the user's audio message exactly. Then respond in character.
-
-${STATE.npcPersonality}${pn}
-
-Turn ${STATE.turn+1}/${STATE.maxTurns}.${STATE.turn+1>=STATE.maxTurns?' Final turn — wrap up naturally.':''}
-
-Respond ONLY with JSON (no markdown, no backticks):
-{"transcription":"exact words the user said","dialogue":"your in-character response","reaction":"one of: interested, skeptical, pleased, surprised, disappointed, nodding, shaking, neutral","inner_thought":"one sentence of what you really think about this person"}`;
-
-  try{
-    const r=await fetch('/api/chat',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:1000,
-        system:transcriptionSys,
-        messages:[{role:'user',content:[
-          {type:'document',source:{type:'base64',media_type:'audio/webm',data:audioBase64}},
-          {type:'text',text:'Please transcribe my audio and respond in character.'}
-        ]}]
-      })
-    });
-    const d=await r.json();
-    const text=d.content?.[0]?.text;
-    if(text){
-      const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
-      const userText=parsed.transcription||'[audio]';
-      STATE.turn++;updateTurn();
-      addChat('user','You: '+userText);
-      STATE.conversationHistory.push({role:'user',content:userText});
-      STATE.conversationHistory.push({role:'assistant',content:parsed.dialogue});
-      setReaction(parsed.reaction||'neutral');
-      typeAndSpeak(parsed.dialogue,SCENARIOS[STATE.scenario].voice);
-      addChat('npc',STATE.npcName+': '+parsed.dialogue);
-      if(parsed.inner_thought)addChat('reaction','['+(parsed.reaction||'neutral').toUpperCase()+'] '+parsed.inner_thought);
-      STATE.presenceHistory.push({...STATE.presenceScores});
-    }else throw new Error('Empty response');
-  }catch(e){
-    console.error('Voice processing error:',e);
-    addChat('system','Could not process audio. Try typing instead.');
-  }
-
-  STATE.isProcessing=false;
-  document.getElementById('micBtn').disabled=false;
-  document.getElementById('sendBtn').disabled=false;
-  document.getElementById('inputHint').textContent='Click mic to record your voice, or type below';
-  checkTurnEnd();
 }
 
 // ============================================================
