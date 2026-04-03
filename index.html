@@ -365,29 +365,38 @@ async function loadExternalModel(url){
           console.log('[TALK TO ME] Playing animation:',clip.name);
         }
 
-        // Find head bone for reactions
+        // Find key bones for reactions
         let foundHead=false;
+        let neckBone=null, spineBone=null, leftEyeBone=null, rightEyeBone=null;
         model.traverse((child)=>{
           if(child.isBone){
             const n=child.name.toLowerCase();
-            if(!foundHead&&(n.includes('head')&&!n.includes('headtop'))){
+            if(!foundHead&&n.includes('head')&&!n.includes('headtop')&&!n.includes('end')){
               headGroup=child;
               foundHead=true;
               console.log('[TALK TO ME] Found head bone:',child.name);
             }
+            if(n.includes('neck')) neckBone=child;
+            if(n.includes('spine')) spineBone=child;
+            if(n.includes('lefteye')) leftEyeBone=child;
+            if(n.includes('righteye')) rightEyeBone=child;
           }
         });
+
+        // Store extra bones on STATE for reactions
+        STATE.neckBone=neckBone;
+        STATE.spineBone=spineBone;
+        STATE.leftEyeBone=leftEyeBone;
+        STATE.rightEyeBone=rightEyeBone;
+
+        // Fix head angle: make the character look at camera instead of down
+        if(headGroup&&foundHead){
+          headGroup.rotation.x=0.1; // slight upward tilt to look at camera
+        }
 
         // Log all bones for debugging
         model.traverse((child)=>{
           if(child.isBone) console.log('[TALK TO ME] Bone:',child.name);
-        });
-
-        // Log blend shapes / morph targets
-        model.traverse((child)=>{
-          if(child.isMesh&&child.morphTargetInfluences){
-            console.log('[TALK TO ME] Morph targets on',child.name,':',Object.keys(child.morphTargetDictionary||{}));
-          }
         });
 
         if(!foundHead){
@@ -425,19 +434,91 @@ async function loadExternalModel(url){
 function flat(c){return new THREE.MeshPhongMaterial({color:c,flatShading:true,shininess:5});}
 
 function buildRoom(){
-  const f=new THREE.Mesh(new THREE.PlaneGeometry(14,14,3,3),flat(0x5a4d3a));f.rotation.x=-Math.PI/2;f.receiveShadow=true;scene.add(f);
-  const bw=new THREE.Mesh(new THREE.PlaneGeometry(14,7,4,3),flat(0x6b5d4a));bw.position.set(0,3.5,-4);bw.receiveShadow=true;scene.add(bw);
-  const lw=new THREE.Mesh(new THREE.PlaneGeometry(10,7,3,3),flat(0x5f5040));lw.position.set(-7,3.5,0);lw.rotation.y=Math.PI/2;scene.add(lw);
-  const win=new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.4),new THREE.MeshBasicMaterial({color:0xeeddaa}));win.position.set(-6.98,2.5,-1.5);win.rotation.y=Math.PI/2;scene.add(win);
-  const fm=flat(0x7a6a50);
-  const fh=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,1.4),fm);fh.position.set(-6.96,2.5,-1.5);fh.rotation.y=Math.PI/2;scene.add(fh);
-  const fv=new THREE.Mesh(new THREE.BoxGeometry(0.04,1.0,0.04),fm);fv.position.set(-6.96,2.5,-1.5);scene.add(fv);
-  const desk=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.08,1.0,2,1,1),flat(0x7a6650));desk.position.set(0,0.78,1.0);desk.castShadow=true;scene.add(desk);
-  const lg=new THREE.BoxGeometry(0.07,0.78,0.07);
-  [[-1.3,0.6],[-1.3,1.4],[1.3,0.6],[1.3,1.4]].forEach(([x,z])=>{const l=new THREE.Mesh(lg,flat(0x6a5a40));l.position.set(x,0.39,z);scene.add(l);});
-  const mug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.12,5),flat(0x889988));mug.position.set(0.7,0.9,0.85);scene.add(mug);
-  const paper=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.02,0.35),flat(0xeeddcc));paper.position.set(-0.5,0.84,0.9);paper.rotation.y=0.12;scene.add(paper);
-  const chair=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.9,0.06,2,3,1),flat(0x4a4438));chair.position.set(0,1.35,-0.35);scene.add(chair);
+  // Floor
+  const f=new THREE.Mesh(new THREE.PlaneGeometry(14,14,3,3),flat(0x6a5d4a));f.rotation.x=-Math.PI/2;f.receiveShadow=true;scene.add(f);
+  // Back wall
+  const bw=new THREE.Mesh(new THREE.PlaneGeometry(14,7,4,3),flat(0x8a7d68));bw.position.set(0,3.5,-4);bw.receiveShadow=true;scene.add(bw);
+  // Left wall
+  const lw=new THREE.Mesh(new THREE.PlaneGeometry(10,7,3,3),flat(0x7d7060));lw.position.set(-7,3.5,0);lw.rotation.y=Math.PI/2;scene.add(lw);
+  // Right wall
+  const rw=new THREE.Mesh(new THREE.PlaneGeometry(10,7,3,3),flat(0x7d7060));rw.position.set(7,3.5,0);rw.rotation.y=-Math.PI/2;scene.add(rw);
+
+  // Window with warm glow
+  const win=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.6),new THREE.MeshBasicMaterial({color:0xffeebb}));win.position.set(-6.98,2.5,-1.5);win.rotation.y=Math.PI/2;scene.add(win);
+  const fm=flat(0x554433);
+  const fh=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,1.6),fm);fh.position.set(-6.96,2.5,-1.5);fh.rotation.y=Math.PI/2;scene.add(fh);
+  const fv=new THREE.Mesh(new THREE.BoxGeometry(0.06,1.2,0.06),fm);fv.position.set(-6.96,2.5,-1.5);scene.add(fv);
+  // Window frame border
+  const wfb=flat(0x665544);
+  [[-0.6,0],[0.6,0],[0,-0.8],[0,0.8]].forEach(([dy,dz])=>{
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(0.06, dy?0.06:1.7, dz?0.06:1.3),wfb);
+    bar.position.set(-6.95,2.5+dy,-1.5+dz);bar.rotation.y=Math.PI/2;scene.add(bar);
+  });
+
+  // Desk (wider, nicer)
+  const deskMat=flat(0x8a7455);
+  const desk=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.06,1.1,2,1,1),deskMat);desk.position.set(0,0.78,1.0);desk.castShadow=true;scene.add(desk);
+  // Desk front panel
+  const deskFront=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.7,0.04),flat(0x7a6545));deskFront.position.set(0,0.44,1.55);scene.add(deskFront);
+  // Desk legs
+  const lg=new THREE.BoxGeometry(0.06,0.78,0.06);
+  [[-1.5,0.5],[-1.5,1.5],[1.5,0.5],[1.5,1.5]].forEach(([x,z])=>{const l=new THREE.Mesh(lg,flat(0x6a5a40));l.position.set(x,0.39,z);scene.add(l);});
+
+  // Mug
+  const mug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.12,6),flat(0xcc8855));mug.position.set(0.9,0.88,0.85);scene.add(mug);
+  // Papers
+  const paper=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.02,0.38),flat(0xf5eedd));paper.position.set(-0.7,0.83,0.9);paper.rotation.y=0.12;scene.add(paper);
+  const paper2=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.015,0.35),flat(0xeee5d5));paper2.position.set(-0.68,0.84,0.88);paper2.rotation.y=-0.05;scene.add(paper2);
+  // Pen
+  const pen=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.18,4),flat(0x222222));pen.position.set(-0.4,0.84,0.95);pen.rotation.z=Math.PI/2;pen.rotation.y=0.3;scene.add(pen);
+
+  // Chair (behind NPC)
+  const chairSeat=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.06,0.6),flat(0x4a4438));chairSeat.position.set(0,0.85,-0.4);scene.add(chairSeat);
+  const chairBack=new THREE.Mesh(new THREE.BoxGeometry(0.65,0.8,0.05),flat(0x4a4438));chairBack.position.set(0,1.3,-0.68);scene.add(chairBack);
+
+  // Bookshelf (right side)
+  const shelfMat=flat(0x6a5540);
+  const shelf=new THREE.Mesh(new THREE.BoxGeometry(0.8,2.0,0.35),shelfMat);shelf.position.set(3.0,1.0,-3.5);scene.add(shelf);
+  // Shelf boards
+  [0.4,0.8,1.2,1.6].forEach(y=>{
+    const board=new THREE.Mesh(new THREE.BoxGeometry(0.78,0.03,0.34),flat(0x7a6550));board.position.set(3.0,y,-3.5);scene.add(board);
+  });
+  // Books (colored blocks)
+  const bookColors=[0xc05050,0x5060a0,0x508050,0xaa8844,0x806060,0x5080a0];
+  bookColors.forEach((c,i)=>{
+    const bw=0.04+Math.random()*0.04, bh=0.18+Math.random()*0.08;
+    const book=new THREE.Mesh(new THREE.BoxGeometry(bw,bh,0.2),flat(c));
+    book.position.set(2.7+i*0.1,0.5+bh/2,-3.5);
+    book.rotation.y=(Math.random()-0.5)*0.1;
+    scene.add(book);
+  });
+  // More books on upper shelf
+  bookColors.slice(0,4).forEach((c,i)=>{
+    const bw=0.04+Math.random()*0.04, bh=0.15+Math.random()*0.1;
+    const book=new THREE.Mesh(new THREE.BoxGeometry(bw,bh,0.2),flat(c));
+    book.position.set(2.75+i*0.12,1.3+bh/2,-3.5);scene.add(book);
+  });
+
+  // Plant (left side)
+  const pot=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.1,0.2,6),flat(0xbb7744));pot.position.set(-2.5,0.1,-3.2);scene.add(pot);
+  const soil=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.03,6),flat(0x3a3020));soil.position.set(-2.5,0.21,-3.2);scene.add(soil);
+  // Leaves (simple cones)
+  for(let i=0;i<5;i++){
+    const leaf=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.3,4),flat(0x4a8a4a));
+    leaf.position.set(-2.5+Math.sin(i*1.3)*0.08,0.4+i*0.06,-3.2+Math.cos(i*1.3)*0.08);
+    leaf.rotation.z=(Math.random()-0.5)*0.4;leaf.rotation.x=(Math.random()-0.5)*0.3;
+    scene.add(leaf);
+  }
+
+  // Picture frame on back wall
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.6,0.03),flat(0x554433));frame.position.set(-1.5,2.2,-3.97);scene.add(frame);
+  const canvas=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.5),flat(0xbbaa88));canvas.position.set(-1.5,2.2,-3.95);scene.add(canvas);
+
+  // Floor lamp (right side, near wall)
+  const lampPole=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.02,1.8,5),flat(0x444444));lampPole.position.set(2.0,0.9,-2.5);scene.add(lampPole);
+  const lampBase=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.18,0.04,6),flat(0x444444));lampBase.position.set(2.0,0.02,-2.5);scene.add(lampBase);
+  const lampShade=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.25,6,1,true),flat(0xddcc99));lampShade.position.set(2.0,1.85,-2.5);scene.add(lampShade);
+  const lampLight=new THREE.PointLight(0xffddaa,0.3,4);lampLight.position.set(2.0,1.7,-2.5);scene.add(lampLight);
 }
 
 function buildCharacter(){
@@ -490,18 +571,55 @@ function animateCharacter(t){
   if(!headGroup)return;
   const A=STATE.anim,s=0.12,b=Math.sin(t*1.8)*0.004;
   const isExternal=!!STATE.externalModel;
-  if(!isExternal){
-    torsoMesh.position.y=1.1+b;neckMesh.position.y=1.6+b*1.5;headGroup.position.y=1.88+b*2;
-    headGroup.position.z=lerp(headGroup.position.z,A.leanZ,s);
-  }
-  if(npcGroup) npcGroup.position.z=lerp(npcGroup.position.z,A.leanZ*0.5,s*0.5);
+
   const idleY=Math.sin(t*0.6)*0.01,idleX=Math.sin(t*1.0)*0.005;
   const nod=A.headNodPhase>0?Math.sin(t*5)*0.12*A.headNodPhase:0;
   const shake=A.headShakePhase>0?Math.sin(t*6)*0.15*A.headShakePhase:0;
-  headGroup.rotation.x=lerp(headGroup.rotation.x,A.headTiltX+idleX+nod,s);
-  headGroup.rotation.y=lerp(headGroup.rotation.y,A.headTiltY+idleY+shake,s);
-  headGroup.rotation.z=lerp(headGroup.rotation.z,A.headTiltZ,s);
+
+  if(isExternal){
+    // External model: use actual bones
+    // Head bone: base angle 0.1 (looking at camera) + reactions
+    const baseHeadX=0.1; // look slightly up at camera
+    headGroup.rotation.x=lerp(headGroup.rotation.x,baseHeadX+A.headTiltX+idleX+nod,s);
+    headGroup.rotation.y=lerp(headGroup.rotation.y,A.headTiltY+idleY+shake,s);
+    headGroup.rotation.z=lerp(headGroup.rotation.z,A.headTiltZ,s);
+
+    // Neck bone: subtle follow of head
+    if(STATE.neckBone){
+      STATE.neckBone.rotation.x=lerp(STATE.neckBone.rotation.x,A.headTiltX*0.3+idleX*0.5,s*0.5);
+      STATE.neckBone.rotation.y=lerp(STATE.neckBone.rotation.y,A.headTiltY*0.3+shake*0.3,s*0.5);
+    }
+
+    // Spine bone: lean forward/back
+    if(STATE.spineBone){
+      STATE.spineBone.rotation.x=lerp(STATE.spineBone.rotation.x,A.leanZ*0.3+b,s*0.3);
+    }
+
+    // Eye bones: subtle look direction
+    if(STATE.leftEyeBone){
+      STATE.leftEyeBone.rotation.y=lerp(STATE.leftEyeBone.rotation.y,Math.sin(t*0.45)*0.05,0.1);
+    }
+    if(STATE.rightEyeBone){
+      STATE.rightEyeBone.rotation.y=lerp(STATE.rightEyeBone.rotation.y,Math.sin(t*0.45)*0.05,0.1);
+    }
+
+    // Body lean via npcGroup
+    if(npcGroup) npcGroup.position.z=lerp(npcGroup.position.z,A.leanZ*0.3+0.3,s*0.5); // 0.3 base offset to stay near desk
+
+  } else {
+    // Built-in character
+    torsoMesh.position.y=1.1+b;neckMesh.position.y=1.6+b*1.5;headGroup.position.y=1.88+b*2;
+    headGroup.position.z=lerp(headGroup.position.z,A.leanZ,s);
+    if(npcGroup) npcGroup.position.z=lerp(npcGroup.position.z,A.leanZ*0.5,s*0.5);
+
+    headGroup.rotation.x=lerp(headGroup.rotation.x,A.headTiltX+idleX+nod,s);
+    headGroup.rotation.y=lerp(headGroup.rotation.y,A.headTiltY+idleY+shake,s);
+    headGroup.rotation.z=lerp(headGroup.rotation.z,A.headTiltZ,s);
+  }
+
+  // Decay phases (both modes)
   A.headNodPhase=Math.max(0,A.headNodPhase-0.004);A.headShakePhase=Math.max(0,A.headShakePhase-0.004);A.surprise=Math.max(0,A.surprise-0.006);
+
   if(!isExternal){
     const ps=Math.sin(t*0.45)*0.01;leftEyeGroup.children[1].position.x=ps;rightEyeGroup.children[1].position.x=ps;
     const bi=A.surprise>0.3?1.2:3.8,bc=t%bi,bs=bc>bi-0.15?0.1:1;
