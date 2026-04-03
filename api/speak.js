@@ -31,12 +31,24 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: 'TTS failed', details: errText });
     }
 
-    // Stream the audio back as mp3
+    // Stream audio through to client instead of buffering
     res.setHeader('Content-Type', 'audio/mpeg');
-    const arrayBuffer = await response.arrayBuffer();
-    res.status(200).send(Buffer.from(arrayBuffer));
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    const reader = response.body.getReader();
+    const pump = async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) { res.end(); return; }
+        res.write(Buffer.from(value));
+      }
+    };
+    await pump();
   } catch (error) {
     console.error('Speak error:', error);
-    return res.status(500).json({ error: 'TTS failed' });
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'TTS failed' });
+    }
+    res.end();
   }
 }

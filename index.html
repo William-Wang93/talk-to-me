@@ -1586,18 +1586,16 @@ function typeAndSpeak(text,voice){
   const el=document.getElementById('npcText'),dlg=document.getElementById('npcDialogue');
   dlg.classList.add('visible');dlg.style.display='block';
   el.innerHTML='<span class="cursor"></span>';
-  // Store pending typewrite — will be triggered when audio starts playing
   STATE._pendingTypewrite={text:text,el:el};
-  // Clear any previous fallback timer
   if(STATE._typewriteFallbackTimer)clearTimeout(STATE._typewriteFallbackTimer);
-  // Set a fallback: if audio hasn't started in 4s, start typewriter anyway
+  // Reduced fallback: if audio hasn't started in 2.5s, start typewriter anyway
   STATE._typewriteFallbackTimer=setTimeout(()=>{
     if(STATE._pendingTypewrite){
       const pt=STATE._pendingTypewrite;
       STATE._pendingTypewrite=null;
       startTypewriter(pt.text,pt.el);
     }
-  },4000);
+  },2500);
   speakNPC(text,voice||'female');
 }
 
@@ -1619,6 +1617,7 @@ async function processTextInput(text){
   const resp=await callClaude(STATE.conversationHistory,sys);
   if(resp){
     console.log('[TALK TO ME] Raw API response:',resp);
+    document.getElementById('pillTurn').textContent='Speaking...';
     try{
       const p=JSON.parse(resp.replace(/```json|```/g,'').trim());
       console.log('[TALK TO ME] Parsed reaction:',p.reaction,'dialogue:',p.dialogue?.substring(0,40));
