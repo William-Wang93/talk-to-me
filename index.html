@@ -1206,6 +1206,7 @@ async function transcribeAndSend(blob,mimeType){
 // SPEECH SYNTHESIS
 // ============================================================
 function stopAllAudio(){
+  STATE._speechGenId=(STATE._speechGenId||0)+1; // invalidate any in-flight TTS fetches
   if(STATE.currentAudio){
     try{STATE.currentAudio.pause();}catch(e){}
     STATE.currentAudio.onplay=null;
@@ -1215,18 +1216,20 @@ function stopAllAudio(){
   }
   if(window.speechSynthesis)speechSynthesis.cancel();
   STATE.talking=false;
+  STATE._pendingTypewrite=null;
   if(STATE.typewriterInterval){clearInterval(STATE.typewriterInterval);STATE.typewriterInterval=null;}
+  if(STATE._typewriteFallbackTimer){clearTimeout(STATE._typewriteFallbackTimer);STATE._typewriteFallbackTimer=null;}
 }
 
 function speakNPC(text,voiceType){
   const cleanText=text.replace(/\*/g,'').trim();
   if(!cleanText)return;
 
-  // Stop any currently playing audio first (but don't clear _pendingTypewrite)
   stopAllAudio();
 
   const scenario=SCENARIOS[STATE.scenario];
   const ttsModel=scenario?.ttsModel||'aura-2-thalia-en';
+  const myGenId=STATE._speechGenId; // capture current generation
 
   fetch('/api/speak',{
     method:'POST',
@@ -1238,13 +1241,15 @@ function speakNPC(text,voiceType){
     return r.blob();
   })
   .then(blob=>{
+    // If generation changed (user exited/started new scenario), discard
+    if(STATE._speechGenId!==myGenId)return;
     const url=URL.createObjectURL(blob);
     const audio=new Audio(url);
     STATE.currentAudio=audio;
     audio.onplay=()=>{
+      if(STATE._speechGenId!==myGenId){audio.pause();return;}
       STATE.talking=true;
       if(STATE._typewriteFallbackTimer){clearTimeout(STATE._typewriteFallbackTimer);STATE._typewriteFallbackTimer=null;}
-      // Start typewriter now that audio is playing
       if(STATE._pendingTypewrite){
         const pt=STATE._pendingTypewrite;
         STATE._pendingTypewrite=null;
@@ -1254,8 +1259,7 @@ function speakNPC(text,voiceType){
     audio.onended=()=>{STATE.talking=false;STATE.currentAudio=null;URL.revokeObjectURL(url);};
     audio.onerror=()=>{
       STATE.talking=false;STATE.currentAudio=null;URL.revokeObjectURL(url);
-      // If audio errors, still show the text
-      if(STATE._pendingTypewrite){
+      if(STATE._speechGenId===myGenId&&STATE._pendingTypewrite){
         const pt=STATE._pendingTypewrite;
         STATE._pendingTypewrite=null;
         startTypewriter(pt.text,pt.el);
@@ -1264,16 +1268,18 @@ function speakNPC(text,voiceType){
     audio.play().catch(()=>{
       STATE.currentAudio=null;
       URL.revokeObjectURL(url);
-      // Start typewriter on play failure
-      if(STATE._pendingTypewrite){
-        const pt=STATE._pendingTypewrite;
-        STATE._pendingTypewrite=null;
-        startTypewriter(pt.text,pt.el);
+      if(STATE._speechGenId===myGenId){
+        if(STATE._pendingTypewrite){
+          const pt=STATE._pendingTypewrite;
+          STATE._pendingTypewrite=null;
+          startTypewriter(pt.text,pt.el);
+        }
+        speakNPCFallback(cleanText,voiceType);
       }
-      speakNPCFallback(cleanText,voiceType);
     });
   })
   .catch(()=>{
+    if(STATE._speechGenId!==myGenId)return;
     console.warn('[TALK TO ME] Deepgram TTS failed, using browser speech');
     if(STATE._pendingTypewrite){
       const pt=STATE._pendingTypewrite;
