@@ -290,16 +290,18 @@ let leftBrow,rightBrow,leftEyeGroup,rightEyeGroup;
 function initThree(){
   const c=document.getElementById('viewport');
   const w=c.clientWidth,h=c.clientHeight;
-  scene=new THREE.Scene();scene.background=new THREE.Color(0x1a1510);scene.fog=new THREE.Fog(0x1a1510,6,16);
-  camera=new THREE.PerspectiveCamera(50,w/h,0.1,100);camera.position.set(0,1.65,2.8);camera.lookAt(0,1.4,0);
-  threeRenderer=new THREE.WebGLRenderer({antialias:false});threeRenderer.setSize(w,h);threeRenderer.setPixelRatio(1);
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x3d3428);scene.fog=new THREE.Fog(0x3d3428,8,20);
+  camera=new THREE.PerspectiveCamera(50,w/h,0.1,100);camera.position.set(0,1.5,2.2);camera.lookAt(0,1.3,0);
+  threeRenderer=new THREE.WebGLRenderer({antialias:true});threeRenderer.setSize(w,h);threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
   threeRenderer.shadowMap.enabled=true;threeRenderer.shadowMap.type=THREE.BasicShadowMap;
-  c.appendChild(threeRenderer.domElement);threeRenderer.domElement.style.imageRendering='pixelated';
+  threeRenderer.outputEncoding=THREE.sRGBEncoding;
+  c.appendChild(threeRenderer.domElement);
   clock=new THREE.Clock();
-  scene.add(new THREE.AmbientLight(0x443322,0.5));
-  const key=new THREE.DirectionalLight(0xddbb88,1.0);key.position.set(-2,3,2);key.castShadow=true;key.shadow.mapSize.set(256,256);scene.add(key);
-  const fill=new THREE.DirectionalLight(0x556677,0.25);fill.position.set(2,1,3);scene.add(fill);
-  const pl=new THREE.PointLight(0xccaa66,0.5,5);pl.position.set(-4,2.5,-0.5);scene.add(pl);
+  scene.add(new THREE.AmbientLight(0x998877,0.8));
+  const key=new THREE.DirectionalLight(0xffeedd,1.2);key.position.set(-2,4,3);key.castShadow=true;key.shadow.mapSize.set(512,512);scene.add(key);
+  const fill=new THREE.DirectionalLight(0x8899aa,0.4);fill.position.set(2,2,3);scene.add(fill);
+  const back=new THREE.DirectionalLight(0xddccaa,0.3);back.position.set(0,2,-2);scene.add(back);
+  const pl=new THREE.PointLight(0xddbb88,0.6,8);pl.position.set(-3,2.5,0);scene.add(pl);
   buildRoom();
   if(MODEL_URL){
     loadExternalModel(MODEL_URL);
@@ -343,10 +345,10 @@ async function loadExternalModel(url){
         box.setFromObject(model);
         box.getCenter(center);
 
-        // Position: feet on ground, centered
+        // Position: feet on ground, centered, pushed forward toward desk
         model.position.x=-center.x;
         model.position.y=-box.min.y;
-        model.position.z=-center.z;
+        model.position.z=-center.z + 0.3; // push toward camera/desk
 
         // Container group for reactions
         npcGroup=new THREE.Group();
@@ -423,19 +425,19 @@ async function loadExternalModel(url){
 function flat(c){return new THREE.MeshPhongMaterial({color:c,flatShading:true,shininess:5});}
 
 function buildRoom(){
-  const f=new THREE.Mesh(new THREE.PlaneGeometry(14,14,3,3),flat(0x2a2218));f.rotation.x=-Math.PI/2;f.receiveShadow=true;scene.add(f);
-  const bw=new THREE.Mesh(new THREE.PlaneGeometry(14,7,4,3),flat(0x3a3228));bw.position.set(0,3.5,-4);bw.receiveShadow=true;scene.add(bw);
-  const lw=new THREE.Mesh(new THREE.PlaneGeometry(10,7,3,3),flat(0x352d22));lw.position.set(-7,3.5,0);lw.rotation.y=Math.PI/2;scene.add(lw);
-  const win=new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.4),new THREE.MeshBasicMaterial({color:0xccbb88}));win.position.set(-6.98,2.5,-1.5);win.rotation.y=Math.PI/2;scene.add(win);
-  const fm=flat(0x554422);
+  const f=new THREE.Mesh(new THREE.PlaneGeometry(14,14,3,3),flat(0x5a4d3a));f.rotation.x=-Math.PI/2;f.receiveShadow=true;scene.add(f);
+  const bw=new THREE.Mesh(new THREE.PlaneGeometry(14,7,4,3),flat(0x6b5d4a));bw.position.set(0,3.5,-4);bw.receiveShadow=true;scene.add(bw);
+  const lw=new THREE.Mesh(new THREE.PlaneGeometry(10,7,3,3),flat(0x5f5040));lw.position.set(-7,3.5,0);lw.rotation.y=Math.PI/2;scene.add(lw);
+  const win=new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.4),new THREE.MeshBasicMaterial({color:0xeeddaa}));win.position.set(-6.98,2.5,-1.5);win.rotation.y=Math.PI/2;scene.add(win);
+  const fm=flat(0x7a6a50);
   const fh=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,1.4),fm);fh.position.set(-6.96,2.5,-1.5);fh.rotation.y=Math.PI/2;scene.add(fh);
   const fv=new THREE.Mesh(new THREE.BoxGeometry(0.04,1.0,0.04),fm);fv.position.set(-6.96,2.5,-1.5);scene.add(fv);
-  const desk=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.08,1.0,2,1,1),flat(0x4a3d30));desk.position.set(0,0.78,1.0);desk.castShadow=true;scene.add(desk);
+  const desk=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.08,1.0,2,1,1),flat(0x7a6650));desk.position.set(0,0.78,1.0);desk.castShadow=true;scene.add(desk);
   const lg=new THREE.BoxGeometry(0.07,0.78,0.07);
-  [[-1.3,0.6],[-1.3,1.4],[1.3,0.6],[1.3,1.4]].forEach(([x,z])=>{const l=new THREE.Mesh(lg,flat(0x3d3020));l.position.set(x,0.39,z);scene.add(l);});
-  const mug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.12,5),flat(0x667766));mug.position.set(0.7,0.9,0.85);scene.add(mug);
-  const paper=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.02,0.35),flat(0xccbbaa));paper.position.set(-0.5,0.84,0.9);paper.rotation.y=0.12;scene.add(paper);
-  const chair=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.9,0.06,2,3,1),flat(0x2a2a25));chair.position.set(0,1.35,-0.35);scene.add(chair);
+  [[-1.3,0.6],[-1.3,1.4],[1.3,0.6],[1.3,1.4]].forEach(([x,z])=>{const l=new THREE.Mesh(lg,flat(0x6a5a40));l.position.set(x,0.39,z);scene.add(l);});
+  const mug=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.12,5),flat(0x889988));mug.position.set(0.7,0.9,0.85);scene.add(mug);
+  const paper=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.02,0.35),flat(0xeeddcc));paper.position.set(-0.5,0.84,0.9);paper.rotation.y=0.12;scene.add(paper);
+  const chair=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.9,0.06,2,3,1),flat(0x4a4438));chair.position.set(0,1.35,-0.35);scene.add(chair);
 }
 
 function buildCharacter(){
