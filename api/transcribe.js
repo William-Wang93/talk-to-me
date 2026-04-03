@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     // Decode base64 to buffer
     const audioBuffer = Buffer.from(audio, 'base64');
 
-    // Call Deepgram Nova-3 with filler words preserved
-    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&punctuate=true&diarize=false&filler_words=true', {
+    // Call Deepgram Nova-2 (Nova-2 is more reliable for filler word detection than Nova-3)
+    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&diarize=false&filler_words=true', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${apiKey}`,
