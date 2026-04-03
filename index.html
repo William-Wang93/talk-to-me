@@ -1206,8 +1206,10 @@ async function transcribeAndSend(blob,mimeType){
 // ============================================================
 function stopAllAudio(){
   if(STATE.currentAudio){
-    STATE.currentAudio.pause();
-    STATE.currentAudio.src='';
+    try{STATE.currentAudio.pause();}catch(e){}
+    STATE.currentAudio.onplay=null;
+    STATE.currentAudio.onended=null;
+    STATE.currentAudio.onerror=null;
     STATE.currentAudio=null;
   }
   if(window.speechSynthesis)speechSynthesis.cancel();
@@ -1219,7 +1221,7 @@ function speakNPC(text,voiceType){
   const cleanText=text.replace(/\*/g,'').trim();
   if(!cleanText)return;
 
-  // Stop any currently playing audio first
+  // Stop any currently playing audio first (but don't clear _pendingTypewrite)
   stopAllAudio();
 
   const scenario=SCENARIOS[STATE.scenario];
@@ -1240,26 +1242,42 @@ function speakNPC(text,voiceType){
     STATE.currentAudio=audio;
     audio.onplay=()=>{
       STATE.talking=true;
+      if(STATE._typewriteFallbackTimer){clearTimeout(STATE._typewriteFallbackTimer);STATE._typewriteFallbackTimer=null;}
       // Start typewriter now that audio is playing
       if(STATE._pendingTypewrite){
-        startTypewriter(STATE._pendingTypewrite.text,STATE._pendingTypewrite.el);
+        const pt=STATE._pendingTypewrite;
         STATE._pendingTypewrite=null;
+        startTypewriter(pt.text,pt.el);
       }
     };
     audio.onended=()=>{STATE.talking=false;STATE.currentAudio=null;URL.revokeObjectURL(url);};
-    audio.onerror=()=>{STATE.talking=false;STATE.currentAudio=null;URL.revokeObjectURL(url);};
+    audio.onerror=()=>{
+      STATE.talking=false;STATE.currentAudio=null;URL.revokeObjectURL(url);
+      // If audio errors, still show the text
+      if(STATE._pendingTypewrite){
+        const pt=STATE._pendingTypewrite;
+        STATE._pendingTypewrite=null;
+        startTypewriter(pt.text,pt.el);
+      }
+    };
     audio.play().catch(()=>{
       STATE.currentAudio=null;
       URL.revokeObjectURL(url);
+      // Start typewriter on play failure
+      if(STATE._pendingTypewrite){
+        const pt=STATE._pendingTypewrite;
+        STATE._pendingTypewrite=null;
+        startTypewriter(pt.text,pt.el);
+      }
       speakNPCFallback(cleanText,voiceType);
     });
   })
   .catch(()=>{
     console.warn('[TALK TO ME] Deepgram TTS failed, using browser speech');
-    // Start typewriter immediately for fallback
     if(STATE._pendingTypewrite){
-      startTypewriter(STATE._pendingTypewrite.text,STATE._pendingTypewrite.el);
+      const pt=STATE._pendingTypewrite;
       STATE._pendingTypewrite=null;
+      startTypewriter(pt.text,pt.el);
     }
     speakNPCFallback(cleanText,voiceType);
   });
@@ -1343,6 +1361,10 @@ async function callClaude(msgs,sys){
 // ============================================================
 function startScenario(key){
   const s=SCENARIOS[key];
+  // Stop any leftover audio and reset processing state
+  stopAllAudio();
+  STATE.isProcessing=false;
+  STATE._pendingTypewrite=null;
   STATE.scenario=key;STATE.npcName=s.npcName;STATE.npcPersonality=s.personality;
   STATE.maxTurns=s.maxTurns||15;
   STATE.turn=0;STATE.conversationHistory=[];STATE.presenceHistory=[];
@@ -1358,6 +1380,14 @@ function startScenario(key){
   else buildCharacter(key);
   document.getElementById('startScreen').classList.add('hidden');document.getElementById('mainApp').style.display='';
   document.getElementById('npcName').textContent=s.npcName;document.getElementById('scenarioLabel').textContent='Scenario: '+s.title;
+  // Reset UI controls
+  document.getElementById('micBtn').disabled=false;
+  document.getElementById('sendBtn').disabled=false;
+  document.getElementById('pillTurn').textContent='Your Turn';
+  document.getElementById('pillTurn').className='pill active';
+  document.getElementById('quitBtn').textContent='Exit';
+  document.getElementById('quitBtn').disabled=false;
+  document.getElementById('inputHint').textContent='Click mic to record your voice, or type here';
   typeAndSpeak(s.opening,s.voice);addChat('npc',s.npcName+': '+s.opening);
   STATE.conversationHistory.push({role:'assistant',content:s.opening});
   setReaction('neutral');updateTurn();window.dispatchEvent(new Event('resize'));
@@ -1380,13 +1410,16 @@ function typeAndSpeak(text,voice){
   el.innerHTML='<span class="cursor"></span>';
   // Store pending typewrite — will be triggered when audio starts playing
   STATE._pendingTypewrite={text:text,el:el};
-  // Set a fallback: if audio hasn't started in 3s, start typewriter anyway
-  setTimeout(()=>{
+  // Clear any previous fallback timer
+  if(STATE._typewriteFallbackTimer)clearTimeout(STATE._typewriteFallbackTimer);
+  // Set a fallback: if audio hasn't started in 4s, start typewriter anyway
+  STATE._typewriteFallbackTimer=setTimeout(()=>{
     if(STATE._pendingTypewrite){
-      startTypewriter(STATE._pendingTypewrite.text,STATE._pendingTypewrite.el);
+      const pt=STATE._pendingTypewrite;
       STATE._pendingTypewrite=null;
+      startTypewriter(pt.text,pt.el);
     }
-  },3000);
+  },4000);
   speakNPC(text,voice||'female');
 }
 
@@ -1418,8 +1451,12 @@ async function processTextInput(text){
       STATE.presenceHistory.push({...STATE.presenceScores});
     }catch(e){console.warn('[TALK TO ME] JSON parse failed:',e);STATE.conversationHistory.push({role:'assistant',content:resp});setReaction('neutral');typeAndSpeak(resp,SCENARIOS[STATE.scenario].voice);addChat('npc',STATE.npcName+': '+resp);}
   }else{addChat('system','[Connection error]');STATE.turn--;updateTurn();}
-  STATE.isProcessing=false;document.getElementById('micBtn').disabled=false;document.getElementById('sendBtn').disabled=false;
+  STATE.isProcessing=false;
+  document.getElementById('micBtn').disabled=false;
+  document.getElementById('sendBtn').disabled=false;
   document.getElementById('inputHint').textContent='Click mic to record your voice, or type here';
+  document.getElementById('pillTurn').textContent='Your Turn';
+  document.getElementById('pillTurn').className='pill active';
   checkTurnEnd();
 }
 
