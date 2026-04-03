@@ -93,14 +93,14 @@
   /* ---- INPUT AREA ---- */
   .input-area{padding:10px 16px;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0;}
   .input-controls{display:flex;gap:8px;align-items:center;}
-  .mic-btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(196,112,63,0.3);}
+  .mic-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(196,112,63,0.3);}
   .mic-btn:hover{background:var(--accent-hover);transform:scale(1.05);}
   .mic-btn.rec{background:var(--danger);box-shadow:0 2px 12px rgba(192,80,80,0.4);animation:pulse 1.2s ease-in-out infinite;}
   .mic-btn:disabled{opacity:0.4;cursor:not-allowed;animation:none;transform:none;}
-  .input-text{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;padding:10px 14px;border-radius:24px;outline:none;height:42px;font-weight:400;}
+  .input-text{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;padding:8px 12px;border-radius:24px;outline:none;height:38px;font-weight:400;min-width:0;}
   .input-text:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(196,112,63,0.1);}
   .input-text::placeholder{color:var(--text-light);}
-  .send-btn{background:var(--accent);border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;padding:0 20px;height:42px;cursor:pointer;letter-spacing:0.5px;border-radius:24px;transition:all 0.2s;}
+  .send-btn{background:var(--accent);border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;padding:0 14px;height:38px;cursor:pointer;letter-spacing:0.5px;border-radius:24px;transition:all 0.2s;flex-shrink:0;}
   .send-btn:hover{background:var(--accent-hover);}
   .send-btn:disabled{opacity:0.4;cursor:not-allowed;}
   .input-hint{font-size:11px;color:var(--text-light);margin-top:6px;letter-spacing:0.3px;text-align:center;min-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:300;}
@@ -1104,7 +1104,17 @@ function updateFillerUI(newCounts){
 async function startRecording(){
   if(STATE.isProcessing||STATE.isRecording)return;
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true,noiseSuppression:true,autoGainControl:true
+    }});
+    // Show "preparing" state immediately
+    document.getElementById('micBtn').classList.add('rec');
+    document.getElementById('micIcon').textContent='\u23F9';
+    document.getElementById('inputHint').innerHTML='<span class="rec-text">Listening...</span>';
+
+    // Brief warm-up: let the mic stream stabilize before recording
+    await new Promise(r=>setTimeout(r,200));
+
     const mr=new MediaRecorder(stream,{
       mimeType:MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm'
     });
@@ -1116,15 +1126,15 @@ async function startRecording(){
       STATE.audioChunks=[];
       await transcribeAndSend(blob,mr.mimeType);
     };
-    mr.start();
+    mr.start(250); // capture in 250ms chunks for better coverage
     STATE.mediaRecorder=mr;
     STATE.isRecording=true;
-    document.getElementById('micBtn').classList.add('rec');
-    document.getElementById('micIcon').textContent='\u23F9';
     document.getElementById('inputHint').innerHTML='<span class="rec-text">Recording... click mic to stop & send</span>';
     document.getElementById('audioBarFill').style.width='60%';
   }catch(e){
     console.error('Mic error:',e);
+    document.getElementById('micBtn').classList.remove('rec');
+    document.getElementById('micIcon').textContent='\u{1F3A4}';
     addChat('system','Microphone access denied. Use text input.');
   }
 }
@@ -1200,7 +1210,7 @@ function speakNPC(text,voiceType){
   const scenario=SCENARIOS[STATE.scenario];
   const ttsModel=scenario?.ttsModel||'aura-2-thalia-en';
 
-  STATE.talking=true;
+  // Don't set talking=true yet — wait for audio to actually play
 
   fetch('/api/speak',{
     method:'POST',
@@ -1214,17 +1224,15 @@ function speakNPC(text,voiceType){
   .then(blob=>{
     const url=URL.createObjectURL(blob);
     const audio=new Audio(url);
+    audio.onplay=()=>{STATE.talking=true;};
     audio.onended=()=>{STATE.talking=false;URL.revokeObjectURL(url);};
     audio.onerror=()=>{STATE.talking=false;URL.revokeObjectURL(url);};
     audio.play().catch(()=>{
-      // Autoplay blocked, fall back to browser speech
-      STATE.talking=false;
       URL.revokeObjectURL(url);
       speakNPCFallback(cleanText,voiceType);
     });
   })
   .catch(()=>{
-    // API failed, fall back to browser speech
     console.warn('[TALK TO ME] Deepgram TTS failed, using browser speech');
     speakNPCFallback(cleanText,voiceType);
   });
