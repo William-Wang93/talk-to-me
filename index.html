@@ -45,14 +45,14 @@
   .quit-btn:hover{background:var(--danger);color:#fff;}
 
   /* ---- MAIN GRID ---- */
-  .main{display:grid;grid-template-columns:1fr 340px;overflow:hidden;position:relative;}
+  .main{display:grid;grid-template-columns:1fr 360px;overflow:hidden;position:relative;}
 
   /* ---- 3D VIEWPORT ---- */
   .viewport{position:relative;background:#2a2218;overflow:hidden;border-radius:0;}
   .viewport canvas{width:100%!important;height:100%!important;display:block;}
 
   /* ---- NPC DIALOGUE ---- */
-  .npc-dialogue{position:absolute;bottom:40px;left:0;right:340px;background:linear-gradient(transparent,rgba(30,25,18,0.92) 35%);padding:50px 28px 20px;display:none;z-index:10;}
+  .npc-dialogue{position:absolute;bottom:40px;left:0;right:360px;background:linear-gradient(transparent,rgba(30,25,18,0.92) 35%);padding:50px 28px 20px;display:none;z-index:10;}
   .npc-dialogue.visible{display:block;}
   .npc-name{font-family:'VT323',monospace;font-size:18px;color:var(--accent-light);margin-bottom:6px;letter-spacing:2px;}
   .npc-text{font-size:14px;line-height:1.7;color:#ede6da;max-width:620px;font-weight:300;}
@@ -315,16 +315,16 @@ const STATE = {
 };
 
 const SCENARIOS = {
-  interview:{npcName:'SARAH CHEN',title:'Job Interview',voice:'female',maxTurns:15,
+  interview:{npcName:'SARAH CHEN',title:'Job Interview',voice:'female',ttsModel:'aura-2-thalia-en',maxTurns:15,
     personality:`You are Sarah Chen, a sharp, direct CFO at a mid-market infrastructure company interviewing a candidate for VP Finance. You are friendly but probing -- you ask follow-ups, test for depth vs. surface knowledge, and care about how candidates think. You push back politely when answers are vague. Keep responses to 2-3 sentences. Vary your questions across technical finance, leadership, culture fit, and situational judgment.`,
     opening:"Have a seat. I've looked through your resume -- let's see if there's a real operator underneath the bullet points. Why this role?"},
-  networking:{npcName:'JAMES PARK',title:'Networking Event',voice:'male',maxTurns:12,
+  networking:{npcName:'JAMES PARK',title:'Networking Event',voice:'male',ttsModel:'aura-2-orpheus-en',maxTurns:12,
     personality:`You are James Park, a Managing Director at an infrastructure PE fund at a conference mixer. You're polite but busy -- you'll engage if someone is interesting, but disengage fast if they're boring or salesy. You value curiosity and original thinking. Keep responses to 2-3 sentences. Let the conversation develop naturally across multiple topics.`,
     opening:"Oh, sorry -- didn't see you there. Quite the crowd tonight. Are you with one of the panels, or just here for the open bar?"},
-  difficult:{npcName:'ALEX RIVERA',title:'Tough Feedback',voice:'male',maxTurns:15,
+  difficult:{npcName:'ALEX RIVERA',title:'Tough Feedback',voice:'male',ttsModel:'aura-2-arcas-en',maxTurns:15,
     personality:`You are Alex Rivera, a financial analyst who reports to the user. You've been making repeated errors in monthly close reports and missing deadlines. You're somewhat defensive and tend to make excuses. React realistically -- push back a little, get slightly emotional, then gradually open up if handled well. This is a long conversation -- don't resolve everything quickly. Show realistic emotional progression. Keep responses to 2-3 sentences.`,
     opening:"Hey, you wanted to chat? I hope this is quick -- I'm slammed with the quarter-end reconciliation."},
-  pitch:{npcName:'DR. LISA WONG',title:'Elevator Pitch',voice:'female',maxTurns:6,
+  pitch:{npcName:'DR. LISA WONG',title:'Elevator Pitch',voice:'female',ttsModel:'aura-2-asteria-en',maxTurns:6,
     personality:`You are Dr. Lisa Wong, a partner at a climate-tech VC fund in an elevator. You've heard a thousand pitches. You respond to specificity, market sizing, and genuine conviction. You hate buzzwords. Ask exactly one pointed question per response. Keep responses to 1-2 sentences.`,
     opening:"*presses floor button* Going up? You look like you have something to say."}
 };
@@ -703,13 +703,13 @@ const CHAR_LOOKS={
     gender:'m', hairStyle:'styled', features:'jaw',
     shoulderW:0.32, torsoW:[0.22,0.28]
   },
-  difficult:{ // Alex Rivera - Hispanic man, younger, short hair, casual
+  difficult:{ // Alex Rivera - Hispanic man, younger, short hair, casual button-down
     skin:0xd4a878, skinSh:0xc09468, skinHi:0xe0b888,
     hair:0x2a1a10, iris:0x3a2a18,
-    cloth:0x5a6878, clothDk:0x4a5868, shirt:0xddd8d0, pants:0x3a3a40,
+    cloth:0x4a5060, clothDk:0x3a4050, shirt:0xd8d4cc, pants:0x3a3a40,
     lip:0xa87868, shoe:0x222222,
     gender:'m', hairStyle:'short', features:'broader',
-    shoulderW:0.30, torsoW:[0.20,0.26]
+    shoulderW:0.33, torsoW:[0.23,0.29]
   },
   pitch:{ // Dr. Lisa Wong - Asian woman, older, glasses, elegant
     skin:0xeecca0, skinSh:0xd8b888, skinHi:0xf5d8b0,
@@ -1193,35 +1193,61 @@ async function transcribeAndSend(blob,mimeType){
 // SPEECH SYNTHESIS
 // ============================================================
 function speakNPC(text,voiceType){
+  const cleanText=text.replace(/\*/g,'').trim();
+  if(!cleanText)return;
+
+  // Try Deepgram Aura TTS first
+  const scenario=SCENARIOS[STATE.scenario];
+  const ttsModel=scenario?.ttsModel||'aura-2-thalia-en';
+
+  STATE.talking=true;
+
+  fetch('/api/speak',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:cleanText,model:ttsModel})
+  })
+  .then(r=>{
+    if(!r.ok) throw new Error('TTS API failed');
+    return r.blob();
+  })
+  .then(blob=>{
+    const url=URL.createObjectURL(blob);
+    const audio=new Audio(url);
+    audio.onended=()=>{STATE.talking=false;URL.revokeObjectURL(url);};
+    audio.onerror=()=>{STATE.talking=false;URL.revokeObjectURL(url);};
+    audio.play().catch(()=>{
+      // Autoplay blocked, fall back to browser speech
+      STATE.talking=false;
+      URL.revokeObjectURL(url);
+      speakNPCFallback(cleanText,voiceType);
+    });
+  })
+  .catch(()=>{
+    // API failed, fall back to browser speech
+    console.warn('[TALK TO ME] Deepgram TTS failed, using browser speech');
+    speakNPCFallback(cleanText,voiceType);
+  });
+}
+
+function speakNPCFallback(text,voiceType){
   if(!window.speechSynthesis)return;
   speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text.replace(/\*/g,''));
+  const u=new SpeechSynthesisUtterance(text);
   u.rate=0.92;u.volume=0.9;
   const voices=speechSynthesis.getVoices();
   if(voices.length){
-    // Prioritize natural/premium voices, then fall back to standard
     let selected=null;
     if(voiceType==='female'){
       u.pitch=1.08;
-      // Try premium/natural voices first (Google, Microsoft Neural, Apple)
-      selected=voices.find(v=>/google.*us.*female|google.*uk.*female/i.test(v.name))
-        ||voices.find(v=>/microsoft.*aria|microsoft.*jenny|microsoft.*sara/i.test(v.name))
-        ||voices.find(v=>/samantha|karen|moira|tessa|fiona/i.test(v.name))
-        ||voices.find(v=>/female|woman/i.test(v.name)&&!/male/i.test(v.name))
-        ||voices.find(v=>v.name.includes('Google')&&/female/i.test(v.name));
+      selected=voices.find(v=>/samantha|karen|fiona|moira|tessa/i.test(v.name))
+        ||voices.find(v=>/female/i.test(v.name)&&!/male/i.test(v.name));
     } else {
       u.pitch=0.9;
-      // Try premium/natural voices first
-      selected=voices.find(v=>/google.*us.*male|google.*uk.*male/i.test(v.name))
-        ||voices.find(v=>/microsoft.*guy|microsoft.*davis|microsoft.*ryan/i.test(v.name))
-        ||voices.find(v=>/daniel|alex|james|thomas|aaron/i.test(v.name)&&!/female/i.test(v.name))
-        ||voices.find(v=>/\bmale\b/i.test(v.name)&&!/female/i.test(v.name))
-        ||voices.find(v=>v.name.includes('Google')&&/male/i.test(v.name));
+      selected=voices.find(v=>/daniel|james|thomas|aaron/i.test(v.name)&&!/female/i.test(v.name))
+        ||voices.find(v=>/\bmale\b/i.test(v.name)&&!/female/i.test(v.name));
     }
-    if(selected){
-      u.voice=selected;
-      console.log('[TALK TO ME] Using voice:',selected.name);
-    }
+    if(selected) u.voice=selected;
   }
   STATE.talking=true;
   u.onend=()=>{STATE.talking=false;};u.onerror=()=>{STATE.talking=false;};
