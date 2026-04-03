@@ -145,8 +145,8 @@
   .results-overlay{position:fixed;inset:0;background:rgba(250,246,240,0.96);z-index:90;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;backdrop-filter:blur(8px);}
   .results-overlay.visible{display:flex;}
   .results-overlay h2{font-family:'VT323',monospace;font-size:44px;color:var(--accent);letter-spacing:3px;}
-  .results-grades{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:420px;width:100%;}
-  .grade-card{background:#fff;border:1px solid var(--border);padding:18px;text-align:center;border-radius:var(--radius);box-shadow:var(--shadow);}
+  .results-grades{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;max-width:560px;width:100%;}
+  .grade-card{background:#fff;border:1px solid var(--border);padding:16px 20px;text-align:center;border-radius:var(--radius);box-shadow:var(--shadow);min-width:90px;flex:1;max-width:120px;}
   .grade-card .label{font-size:10px;color:var(--text-light);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;font-weight:600;}
   .grade-card .grade{font-family:'VT323',monospace;font-size:40px;color:var(--accent);}
   .results-feedback{max-width:480px;font-size:14px;line-height:1.8;color:var(--text);text-align:center;padding:0 20px;font-weight:300;}
@@ -154,6 +154,36 @@
   .results-overlay button:hover{background:var(--accent-hover);transform:translateY(-1px);}
 
   /* ---- NO MORE SCANLINES ---- */
+
+  /* ---- FILLER WORD TRACKER ---- */
+  .filler-tracker{display:flex;flex-wrap:wrap;gap:6px;}
+  .filler-chip{display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:3px 10px;font-size:10px;font-weight:500;color:var(--text-light);transition:all 0.3s;}
+  .filler-chip .filler-word{text-transform:uppercase;letter-spacing:0.5px;}
+  .filler-chip .filler-count{background:var(--border);color:var(--text);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;transition:all 0.3s;}
+  .filler-chip.active{border-color:var(--warn);background:var(--warn-light);}
+  .filler-chip.active .filler-count{background:var(--warn);color:#fff;}
+  .filler-chip.bad{border-color:var(--danger);background:var(--danger-light);}
+  .filler-chip.bad .filler-count{background:var(--danger);color:#fff;}
+  .filler-summary{font-size:10px;color:var(--text-light);margin-top:4px;font-weight:300;width:100%;}
+  .filler-summary strong{color:var(--text);font-weight:600;}
+  .filler-flash{animation:fillerFlash 0.4s ease;}
+  @keyframes fillerFlash{0%{transform:scale(1);}50%{transform:scale(1.2);}100%{transform:scale(1);}}
+
+  /* ---- AUDIO PLAYBACK IN RESULTS ---- */
+  .results-audio{max-width:480px;width:100%;padding:0 20px;}
+  .results-audio h3{font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;font-weight:600;text-align:center;}
+  .audio-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;scrollbar-width:thin;}
+  .audio-item{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;}
+  .audio-item .audio-turn{font-size:10px;font-weight:600;color:var(--accent);min-width:48px;}
+  .audio-item audio{flex:1;height:32px;}
+  .audio-item .audio-transcript{font-size:10px;color:var(--text-light);font-weight:300;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* ---- SPEECH GRADE ---- */
+  .results-speech{max-width:480px;width:100%;text-align:center;padding:0 20px;}
+  .results-speech .speech-stats{display:flex;justify-content:center;gap:16px;margin-top:6px;flex-wrap:wrap;}
+  .results-speech .stat{font-size:11px;color:var(--text-light);}
+  .results-speech .stat strong{color:var(--text);font-weight:600;}
+  .results-filler-detail{font-size:12px;color:var(--text);margin-top:6px;font-weight:300;line-height:1.6;}
 </style>
 </head>
 <body>
@@ -180,7 +210,9 @@
 <div class="results-overlay" id="resultsOverlay">
   <h2>Conversation Over</h2>
   <div class="results-grades" id="resultsGrades"></div>
+  <div class="results-speech" id="resultsSpeech"></div>
   <div class="results-feedback" id="resultsFeedback"></div>
+  <div class="results-audio" id="resultsAudio"></div>
   <button onclick="location.reload()">Try Again</button>
 </div>
 
@@ -216,6 +248,18 @@
           <div class="meter"><div class="meter-label">Eye Contact</div><div class="meter-bar"><div class="meter-fill" id="meterEyes"></div></div><div class="meter-val" id="valEyes">--</div></div>
           <div class="meter"><div class="meter-label">Composure</div><div class="meter-bar"><div class="meter-fill" id="meterComposure"></div></div><div class="meter-val" id="valComposure">--</div></div>
           <div class="meter"><div class="meter-label">Engagement</div><div class="meter-bar"><div class="meter-fill" id="meterEngagement"></div></div><div class="meter-val" id="valEngagement">--</div></div>
+        </div>
+      </div>
+      <div class="panel-section" id="fillerSection">
+        <h3>Speech Fillers</h3>
+        <div class="filler-tracker" id="fillerTracker">
+          <div class="filler-chip" id="filler-um"><span class="filler-word">um</span><span class="filler-count" id="count-um">0</span></div>
+          <div class="filler-chip" id="filler-uh"><span class="filler-word">uh</span><span class="filler-count" id="count-uh">0</span></div>
+          <div class="filler-chip" id="filler-like"><span class="filler-word">like</span><span class="filler-count" id="count-like">0</span></div>
+          <div class="filler-chip" id="filler-you_know"><span class="filler-word">y'know</span><span class="filler-count" id="count-you_know">0</span></div>
+          <div class="filler-chip" id="filler-so"><span class="filler-word">so</span><span class="filler-count" id="count-so">0</span></div>
+          <div class="filler-chip" id="filler-basically"><span class="filler-word">basically</span><span class="filler-count" id="count-basically">0</span></div>
+          <div class="filler-summary" id="fillerSummary">Speak to start tracking</div>
         </div>
       </div>
       <div class="chat-log" id="chatLog"><div class="chat-msg system">Select a scenario to begin...</div></div>
@@ -261,6 +305,11 @@ const STATE = {
   faceDetected:false,videoStream:null,talking:false,
   isRecording:false,mediaRecorder:null,audioChunks:[],
   externalModel:null,mixer:null,
+  // Speech coaching
+  fillerCounts:{um:0,uh:0,like:0,you_know:0,so:0,basically:0,actually:0,right:0},
+  totalWords:0,
+  audioRecordings:[], // {blob, turn, transcript}
+  rawTranscripts:[], // exact transcripts from Deepgram for speech analysis
   anim:{headTiltX:0,headTiltY:0,headTiltZ:0,leanZ:0,browLY:0.075,browRY:0.075,browLZ:0,browRZ:0,
         mouthScaleX:1,mouthScaleYBase:1,eyeSquint:1,headNodPhase:0,headShakePhase:0,surprise:0}
 };
@@ -920,6 +969,68 @@ function renderLoop(){
 }
 
 // ============================================================
+// FILLER WORD DETECTION
+// ============================================================
+const FILLER_PATTERNS={
+  um:/\bum+\b/gi, uh:/\buh+\b/gi, like:/\blike\b/gi,
+  you_know:/\byou know\b/gi, so:/\bso\b/gi, basically:/\bbasically\b/gi,
+  actually:/\bactually\b/gi, right:/\bright\b/gi
+};
+// "like" and "so" only count when used as fillers (start of clause, after pause)
+const FILLER_CONTEXTUAL=['like','so','right'];
+
+function analyzeFillers(transcript){
+  const words=transcript.trim().split(/\s+/).length;
+  STATE.totalWords+=words;
+  const counts={};
+  for(const [key,regex] of Object.entries(FILLER_PATTERNS)){
+    const matches=transcript.match(regex);
+    const n=matches?matches.length:0;
+    // For contextual fillers, use heuristic: only count if at sentence start or after comma
+    if(FILLER_CONTEXTUAL.includes(key)&&n>0){
+      // Count only filler-like usage (rough: starts sentence, follows comma/period, or is isolated)
+      const contextual=transcript.match(new RegExp(`(?:^|[,.]\\s*)${key}\\b`,'gi'));
+      counts[key]=contextual?contextual.length:0;
+    } else {
+      counts[key]=n;
+    }
+  }
+  // Update state
+  let anyNew=false;
+  for(const [key,n] of Object.entries(counts)){
+    if(n>0){
+      STATE.fillerCounts[key]=(STATE.fillerCounts[key]||0)+n;
+      anyNew=true;
+    }
+  }
+  if(anyNew) updateFillerUI(counts);
+}
+
+function updateFillerUI(newCounts){
+  const total=Object.values(STATE.fillerCounts).reduce((a,b)=>a+b,0);
+  const rate=STATE.totalWords>0?((total/STATE.totalWords)*100).toFixed(1):'0';
+
+  for(const [key,val] of Object.entries(STATE.fillerCounts)){
+    const countEl=document.getElementById('count-'+key);
+    const chipEl=document.getElementById('filler-'+key);
+    if(!countEl||!chipEl)continue;
+    countEl.textContent=val;
+    chipEl.className='filler-chip'+(val>=5?' bad':val>0?' active':'');
+    // Flash animation on new detection
+    if(newCounts&&newCounts[key]>0){
+      countEl.classList.remove('filler-flash');
+      void countEl.offsetWidth; // force reflow
+      countEl.classList.add('filler-flash');
+    }
+  }
+  const summaryEl=document.getElementById('fillerSummary');
+  if(summaryEl){
+    if(total===0) summaryEl.textContent='Clean so far — no fillers detected';
+    else summaryEl.innerHTML=`<strong>${total}</strong> filler${total!==1?'s':''} in <strong>${STATE.totalWords}</strong> words (${rate}% filler rate)`;
+  }
+}
+
+// ============================================================
 // VOICE INPUT (Deepgram via MediaRecorder)
 // ============================================================
 async function startRecording(){
@@ -980,9 +1091,18 @@ async function transcribeAndSend(blob,mimeType){
     });
     const data=await r.json();
     if(data.transcript&&data.transcript.trim()){
-      console.log('[TALK TO ME] Deepgram transcript:',data.transcript);
-      document.getElementById('inputHint').textContent='You said: "'+data.transcript.substring(0,60)+'"';
-      processTextInput(data.transcript.trim());
+      const transcript=data.transcript.trim();
+      console.log('[TALK TO ME] Deepgram transcript:',transcript);
+      document.getElementById('inputHint').textContent='You said: "'+transcript.substring(0,60)+'"';
+
+      // Save audio recording for playback
+      STATE.audioRecordings.push({blob:blob,turn:STATE.turn+1,transcript:transcript});
+      // Save raw transcript for speech analysis
+      STATE.rawTranscripts.push(transcript);
+      // Analyze fillers
+      analyzeFillers(transcript);
+
+      processTextInput(transcript);
     }else{
       document.getElementById('inputHint').textContent='No speech detected. Try again or type.';
       document.getElementById('micBtn').disabled=false;
@@ -1078,6 +1198,10 @@ function startScenario(key){
   STATE.scenario=key;STATE.npcName=s.npcName;STATE.npcPersonality=s.personality;
   STATE.maxTurns=s.maxTurns||15;
   STATE.turn=0;STATE.conversationHistory=[];STATE.presenceHistory=[];
+  // Reset speech coaching
+  STATE.fillerCounts={um:0,uh:0,like:0,you_know:0,so:0,basically:0,actually:0,right:0};
+  STATE.totalWords=0;STATE.audioRecordings=[];STATE.rawTranscripts=[];
+  updateFillerUI({});
   document.getElementById('startScreen').classList.add('hidden');document.getElementById('mainApp').style.display='';
   document.getElementById('npcName').textContent=s.npcName;document.getElementById('scenarioLabel').textContent='Scenario: '+s.title;
   typeAndSpeak(s.opening,s.voice);addChat('npc',s.npcName+': '+s.opening);
@@ -1146,16 +1270,66 @@ async function endConversation(){
   let pa={posture:0,eyes:0,composure:0,engagement:0};
   if(STATE.presenceHistory.length){for(const s of STATE.presenceHistory){pa.posture+=s.posture;pa.eyes+=s.eyes;pa.composure+=s.composure;pa.engagement+=s.engagement;}
     const n=STATE.presenceHistory.length;pa.posture=Math.round(pa.posture/n);pa.eyes=Math.round(pa.eyes/n);pa.composure=Math.round(pa.composure/n);pa.engagement=Math.round(pa.engagement/n);}
-  const prompt=`Conversation coach. Scenario: ${SCENARIOS[STATE.scenario].title}.\n\nTRANSCRIPT:\n${tr}\n\n${STATE.webcamOn?`PRESENCE: Posture ${pa.posture}, Eyes ${pa.eyes}, Composure ${pa.composure}, Engagement ${pa.engagement}`:'No webcam.'}\n\nJSON only (no backticks):\n{"content_grade":"A-F","presence_grade":"A-F or N/A","rapport_grade":"A-F","overall_grade":"A-F","feedback":"3-4 sentences of specific actionable feedback. What did they do well? What are the top 2 things to improve? Be specific about moments in the conversation."}`;
+
+  // Build filler word summary for the AI coach
+  const totalFillers=Object.values(STATE.fillerCounts).reduce((a,b)=>a+b,0);
+  const fillerRate=STATE.totalWords>0?((totalFillers/STATE.totalWords)*100).toFixed(1):'0';
+  const topFillers=Object.entries(STATE.fillerCounts).filter(([k,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k.replace('_',' ')}(${v})`).join(', ');
+  const fillerInfo=STATE.rawTranscripts.length>0?
+    `\nSPEECH ANALYSIS: ${totalFillers} filler words in ${STATE.totalWords} total words (${fillerRate}% filler rate). Fillers used: ${topFillers||'none'}. Raw voice transcripts: ${STATE.rawTranscripts.map((t,i)=>`Turn ${i+1}: "${t}"`).join('; ')}`:
+    '\nNo voice input was used (typed responses only).';
+
+  const prompt=`Conversation coach. Scenario: ${SCENARIOS[STATE.scenario].title}.\n\nTRANSCRIPT:\n${tr}\n\n${STATE.webcamOn?`PRESENCE: Posture ${pa.posture}, Eyes ${pa.eyes}, Composure ${pa.composure}, Engagement ${pa.engagement}`:'No webcam.'}${fillerInfo}\n\nJSON only (no backticks):\n{"content_grade":"A-F","presence_grade":"A-F or N/A","rapport_grade":"A-F","fluency_grade":"A-F or N/A if typed","overall_grade":"A-F","feedback":"3-4 sentences of specific actionable feedback on conversation content and rapport.","speech_feedback":"2-3 sentences specifically about their speech delivery. Comment on filler word usage, any stammering or repetition patterns you see in the transcripts, pacing, and clarity. If they typed, say N/A."}`;
   const result=await callClaude([{role:'user',content:prompt}],'Respond only with JSON. Be honest but constructive.');
-  let g={content_grade:'?',presence_grade:'N/A',rapport_grade:'?',overall_grade:'?',feedback:'Unable to generate feedback.'};
+  let g={content_grade:'?',presence_grade:'N/A',rapport_grade:'?',fluency_grade:'N/A',overall_grade:'?',feedback:'Unable to generate feedback.',speech_feedback:''};
   if(result){try{g=JSON.parse(result.replace(/```json|```/g,'').trim());}catch(e){}}
+
+  // Render grades (now including fluency)
   document.getElementById('resultsGrades').innerHTML=`
     <div class="grade-card"><div class="label">Content</div><div class="grade">${g.content_grade}</div></div>
     <div class="grade-card"><div class="label">Presence</div><div class="grade">${g.presence_grade}</div></div>
     <div class="grade-card"><div class="label">Rapport</div><div class="grade">${g.rapport_grade}</div></div>
+    <div class="grade-card"><div class="label">Fluency</div><div class="grade">${g.fluency_grade||'N/A'}</div></div>
     <div class="grade-card"><div class="label">Overall</div><div class="grade">${g.overall_grade}</div></div>`;
+
+  // Speech stats section
+  const speechEl=document.getElementById('resultsSpeech');
+  if(STATE.rawTranscripts.length>0){
+    const fillerDetail=topFillers?`Most used: ${topFillers}`:'No filler words detected — nice!';
+    speechEl.innerHTML=`
+      <div class="speech-stats">
+        <div class="stat"><strong>${STATE.totalWords}</strong> words</div>
+        <div class="stat"><strong>${totalFillers}</strong> fillers</div>
+        <div class="stat"><strong>${fillerRate}%</strong> filler rate</div>
+        <div class="stat"><strong>${STATE.rawTranscripts.length}</strong> voice turns</div>
+      </div>
+      <div class="results-filler-detail">${fillerDetail}</div>
+      ${g.speech_feedback&&g.speech_feedback!=='N/A'?`<div class="results-filler-detail" style="margin-top:8px;font-style:italic;">${g.speech_feedback}</div>`:''}`;
+  } else {
+    speechEl.innerHTML=g.speech_feedback&&g.speech_feedback!=='N/A'?`<div class="results-filler-detail" style="font-style:italic;">${g.speech_feedback}</div>`:'';
+  }
+
   document.getElementById('resultsFeedback').textContent=g.feedback;
+
+  // Audio playback section
+  const audioEl=document.getElementById('resultsAudio');
+  if(STATE.audioRecordings.length>0){
+    let html='<h3>Listen Back</h3><div class="audio-list">';
+    STATE.audioRecordings.forEach((rec,i)=>{
+      const url=URL.createObjectURL(rec.blob);
+      const shortTranscript=rec.transcript.length>50?rec.transcript.substring(0,47)+'...':rec.transcript;
+      html+=`<div class="audio-item">
+        <span class="audio-turn">Turn ${rec.turn}</span>
+        <audio controls src="${url}" preload="none"></audio>
+        <span class="audio-transcript" title="${rec.transcript.replace(/"/g,'&quot;')}">${shortTranscript}</span>
+      </div>`;
+    });
+    html+='</div>';
+    audioEl.innerHTML=html;
+  } else {
+    audioEl.innerHTML='';
+  }
+
   document.getElementById('resultsOverlay').classList.add('visible');
 }
 
