@@ -60,12 +60,12 @@
   @keyframes blink{50%{opacity:0;}}
 
   /* ---- SIDE PANEL ---- */
-  .side-panel{display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--panel);overflow:hidden;}
-  .panel-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+  .side-panel{display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--panel);overflow:hidden;min-height:0;}
+  .panel-section{padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
   .panel-section h3{font-size:11px;color:var(--text-light);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-weight:600;}
 
   /* ---- WEBCAM ---- */
-  .webcam-container{position:relative;width:100%;aspect-ratio:4/3;background:#f0ebe3;border:1px solid var(--border);overflow:hidden;border-radius:var(--radius-sm);}
+  .webcam-container{position:relative;width:100%;aspect-ratio:16/9;background:#f0ebe3;border:1px solid var(--border);overflow:hidden;border-radius:var(--radius-sm);}
   .webcam-container video{width:100%;height:100%;object-fit:cover;}
   .webcam-container canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:none;}
   .webcam-overlay{position:absolute;top:0;left:0;right:0;bottom:0;border:2px solid transparent;transition:border-color 0.3s;pointer-events:none;border-radius:var(--radius-sm);}
@@ -83,7 +83,7 @@
   .meter-val{font-size:11px;width:28px;text-align:right;font-weight:600;color:var(--text);}
 
   /* ---- CHAT LOG ---- */
-  .chat-log{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  .chat-log{flex:1;overflow-y:auto;padding:10px 16px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;min-height:0;}
   .chat-msg{font-size:12px;line-height:1.6;padding:8px 12px;border-radius:var(--radius-sm);max-width:92%;font-weight:400;}
   .chat-msg.system{color:var(--text-light);font-style:italic;font-size:11px;font-weight:300;}
   .chat-msg.user{background:var(--accent-light);border:none;align-self:flex-end;color:var(--accent-hover);}
@@ -91,7 +91,7 @@
   .chat-msg.reaction{background:var(--warn-light);border:none;color:#8a6e30;font-size:11px;font-style:italic;font-weight:300;}
 
   /* ---- INPUT AREA ---- */
-  .input-area{padding:12px 16px;border-top:1px solid var(--border);background:var(--panel);}
+  .input-area{padding:10px 16px;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0;}
   .input-controls{display:flex;gap:8px;align-items:center;}
   .mic-btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(196,112,63,0.3);}
   .mic-btn:hover{background:var(--accent-hover);transform:scale(1.05);}
@@ -142,7 +142,7 @@
   .cam-toggle:hover{border-color:var(--accent);color:var(--accent);}
 
   /* ---- RESULTS OVERLAY ---- */
-  .results-overlay{position:fixed;inset:0;background:rgba(250,246,240,0.96);z-index:90;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;backdrop-filter:blur(8px);}
+  .results-overlay{position:fixed;inset:0;background:rgba(250,246,240,0.96);z-index:90;display:none;flex-direction:column;align-items:center;gap:20px;backdrop-filter:blur(8px);overflow-y:auto;padding:40px 20px;}
   .results-overlay.visible{display:flex;}
   .results-overlay h2{font-family:'VT323',monospace;font-size:44px;color:var(--accent);letter-spacing:3px;}
   .results-grades{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;max-width:560px;width:100%;}
@@ -213,7 +213,7 @@
   <div class="results-speech" id="resultsSpeech"></div>
   <div class="results-feedback" id="resultsFeedback"></div>
   <div class="results-audio" id="resultsAudio"></div>
-  <button onclick="location.reload()">Try Again</button>
+  <button onclick="restartToMenu()">Try Again</button>
 </div>
 
 <!-- MAIN APP -->
@@ -1253,15 +1253,54 @@ async function processTextInput(text){
 }
 
 function checkTurnEnd(){
-  if(STATE.turn>=STATE.maxTurns){document.getElementById('pillTurn').textContent='Wrapping up...';setTimeout(endConversation,2500);}
+  if(STATE.turn>=STATE.maxTurns){
+    document.getElementById('pillTurn').textContent='Calculating...';
+    document.getElementById('pillTurn').className='pill warn';
+    document.getElementById('micBtn').disabled=true;
+    document.getElementById('sendBtn').disabled=true;
+    document.getElementById('quitBtn').textContent='Calculating...';
+    document.getElementById('quitBtn').disabled=true;
+    setTimeout(endConversation,2500);
+  }
   else{document.getElementById('pillTurn').textContent='Your Turn';document.getElementById('pillTurn').className='pill active';}
 }
 
 function quitConversation(){
   if(window.speechSynthesis)speechSynthesis.cancel();
   STATE.talking=false;
-  if(STATE.turn>0)endConversation();
-  else location.reload();
+  if(STATE.turn>0){
+    // Show calculating state
+    document.getElementById('quitBtn').textContent='Calculating...';
+    document.getElementById('quitBtn').disabled=true;
+    document.getElementById('pillTurn').textContent='Calculating...';
+    document.getElementById('pillTurn').className='pill warn';
+    document.getElementById('micBtn').disabled=true;
+    document.getElementById('sendBtn').disabled=true;
+    endConversation();
+  }
+  else restartToMenu();
+}
+
+function restartToMenu(){
+  // Go back to scenario select without reloading (keeps password unlocked)
+  if(window.speechSynthesis)speechSynthesis.cancel();
+  STATE.talking=false;
+  // Hide results and main app
+  document.getElementById('resultsOverlay').classList.remove('visible');
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('npcDialogue').classList.remove('visible');
+  // Reset quit button
+  document.getElementById('quitBtn').textContent='Exit';
+  document.getElementById('quitBtn').disabled=false;
+  // Show start screen with scenarios still unlocked
+  const startScreen=document.getElementById('startScreen');
+  startScreen.classList.remove('hidden');
+  // Clear chat log
+  document.getElementById('chatLog').innerHTML='<div class="chat-msg system">Select a scenario to begin...</div>';
+  // Revoke audio URLs to free memory
+  STATE.audioRecordings.forEach(rec=>{if(rec.blobUrl)URL.revokeObjectURL(rec.blobUrl);});
+  // Clean up 3D scene
+  if(npcGroup&&scene){scene.remove(npcGroup);npcGroup=null;headGroup=null;}
 }
 
 async function endConversation(){
