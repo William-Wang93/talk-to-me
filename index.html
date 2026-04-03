@@ -310,6 +310,8 @@ const STATE = {
   totalWords:0,
   audioRecordings:[], // {blob, turn, transcript}
   rawTranscripts:[], // exact transcripts from Deepgram for speech analysis
+  currentAudio:null, // reference to currently playing TTS audio
+  typewriterInterval:null, // reference to current typewriter interval
   anim:{headTiltX:0,headTiltY:0,headTiltZ:0,leanZ:0,browLY:0.075,browRY:0.075,browLZ:0,browRZ:0,
         mouthScaleX:1,mouthScaleYBase:1,eyeSquint:1,headNodPhase:0,headShakePhase:0,surprise:0}
 };
@@ -1202,15 +1204,26 @@ async function transcribeAndSend(blob,mimeType){
 // ============================================================
 // SPEECH SYNTHESIS
 // ============================================================
+function stopAllAudio(){
+  if(STATE.currentAudio){
+    STATE.currentAudio.pause();
+    STATE.currentAudio.src='';
+    STATE.currentAudio=null;
+  }
+  if(window.speechSynthesis)speechSynthesis.cancel();
+  STATE.talking=false;
+  if(STATE.typewriterInterval){clearInterval(STATE.typewriterInterval);STATE.typewriterInterval=null;}
+}
+
 function speakNPC(text,voiceType){
   const cleanText=text.replace(/\*/g,'').trim();
   if(!cleanText)return;
 
-  // Try Deepgram Aura TTS first
+  // Stop any currently playing audio first
+  stopAllAudio();
+
   const scenario=SCENARIOS[STATE.scenario];
   const ttsModel=scenario?.ttsModel||'aura-2-thalia-en';
-
-  // Don't set talking=true yet — wait for audio to actually play
 
   fetch('/api/speak',{
     method:'POST',
@@ -1224,16 +1237,30 @@ function speakNPC(text,voiceType){
   .then(blob=>{
     const url=URL.createObjectURL(blob);
     const audio=new Audio(url);
-    audio.onplay=()=>{STATE.talking=true;};
-    audio.onended=()=>{STATE.talking=false;URL.revokeObjectURL(url);};
-    audio.onerror=()=>{STATE.talking=false;URL.revokeObjectURL(url);};
+    STATE.currentAudio=audio;
+    audio.onplay=()=>{
+      STATE.talking=true;
+      // Start typewriter now that audio is playing
+      if(STATE._pendingTypewrite){
+        startTypewriter(STATE._pendingTypewrite.text,STATE._pendingTypewrite.el);
+        STATE._pendingTypewrite=null;
+      }
+    };
+    audio.onended=()=>{STATE.talking=false;STATE.currentAudio=null;URL.revokeObjectURL(url);};
+    audio.onerror=()=>{STATE.talking=false;STATE.currentAudio=null;URL.revokeObjectURL(url);};
     audio.play().catch(()=>{
+      STATE.currentAudio=null;
       URL.revokeObjectURL(url);
       speakNPCFallback(cleanText,voiceType);
     });
   })
   .catch(()=>{
     console.warn('[TALK TO ME] Deepgram TTS failed, using browser speech');
+    // Start typewriter immediately for fallback
+    if(STATE._pendingTypewrite){
+      startTypewriter(STATE._pendingTypewrite.text,STATE._pendingTypewrite.el);
+      STATE._pendingTypewrite=null;
+    }
     speakNPCFallback(cleanText,voiceType);
   });
 }
@@ -1336,13 +1363,30 @@ function startScenario(key){
   setReaction('neutral');updateTurn();window.dispatchEvent(new Event('resize'));
 }
 
+function startTypewriter(text,el){
+  if(STATE.typewriterInterval)clearInterval(STATE.typewriterInterval);
+  let i=0;
+  // Calculate speed based on text length to roughly match audio duration
+  const speed=Math.max(15,Math.min(35,text.length>100?18:25));
+  STATE.typewriterInterval=setInterval(()=>{
+    if(i<text.length)el.innerHTML=text.substring(0,++i)+'<span class="cursor"></span>';
+    else{el.innerHTML=text;clearInterval(STATE.typewriterInterval);STATE.typewriterInterval=null;}
+  },speed);
+}
+
 function typeAndSpeak(text,voice){
   const el=document.getElementById('npcText'),dlg=document.getElementById('npcDialogue');
-  dlg.classList.add('visible');dlg.style.display='block';el.innerHTML='';
-  let i=0;const iv=setInterval(()=>{
-    if(i<text.length)el.innerHTML=text.substring(0,++i)+'<span class="cursor"></span>';
-    else{el.innerHTML=text;clearInterval(iv);}
-  },22);
+  dlg.classList.add('visible');dlg.style.display='block';
+  el.innerHTML='<span class="cursor"></span>';
+  // Store pending typewrite — will be triggered when audio starts playing
+  STATE._pendingTypewrite={text:text,el:el};
+  // Set a fallback: if audio hasn't started in 3s, start typewriter anyway
+  setTimeout(()=>{
+    if(STATE._pendingTypewrite){
+      startTypewriter(STATE._pendingTypewrite.text,STATE._pendingTypewrite.el);
+      STATE._pendingTypewrite=null;
+    }
+  },3000);
   speakNPC(text,voice||'female');
 }
 
@@ -1393,10 +1437,8 @@ function checkTurnEnd(){
 }
 
 function quitConversation(){
-  if(window.speechSynthesis)speechSynthesis.cancel();
-  STATE.talking=false;
+  stopAllAudio();
   if(STATE.turn>0){
-    // Show calculating state
     document.getElementById('quitBtn').textContent='Calculating...';
     document.getElementById('quitBtn').disabled=true;
     document.getElementById('pillTurn').textContent='Calculating...';
@@ -1409,9 +1451,7 @@ function quitConversation(){
 }
 
 function restartToMenu(){
-  // Go back to scenario select without reloading (keeps password unlocked)
-  if(window.speechSynthesis)speechSynthesis.cancel();
-  STATE.talking=false;
+  stopAllAudio();
   // Hide results and main app
   document.getElementById('resultsOverlay').classList.remove('visible');
   document.getElementById('mainApp').style.display='none';
@@ -1429,7 +1469,7 @@ function restartToMenu(){
 }
 
 async function endConversation(){
-  if(window.speechSynthesis)speechSynthesis.cancel();
+  stopAllAudio();
   const tr=STATE.conversationHistory.map(m=>`${m.role==='user'?'PLAYER':STATE.npcName}: ${m.content}`).join('\n');
   let pa={posture:0,eyes:0,composure:0,engagement:0};
   if(STATE.presenceHistory.length){for(const s of STATE.presenceHistory){pa.posture+=s.posture;pa.eyes+=s.eyes;pa.composure+=s.composure;pa.engagement+=s.engagement;}
