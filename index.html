@@ -336,8 +336,8 @@ async function loadExternalModel(url){
         const size=box.getSize(new THREE.Vector3());
         const center=box.getCenter(new THREE.Vector3());
 
-        // Scale so model is about 1.6 units tall (upper body visible above desk)
-        const targetHeight=1.6;
+        // Scale so model is about 1.0 units tall (waist-up visible above desk)
+        const targetHeight=1.0;
         const scale=targetHeight/size.y;
         model.scale.setScalar(scale);
 
@@ -345,10 +345,10 @@ async function loadExternalModel(url){
         box.setFromObject(model);
         box.getCenter(center);
 
-        // Position: feet on ground, centered, pushed forward toward desk
+        // Position: feet on ground, centered, behind the desk
         model.position.x=-center.x;
         model.position.y=-box.min.y;
-        model.position.z=-center.z + 0.3; // push toward camera/desk
+        model.position.z=-center.z - 0.2; // behind desk
 
         // Container group for reactions
         npcGroup=new THREE.Group();
@@ -578,33 +578,40 @@ function animateCharacter(t){
 
   if(isExternal){
     // External model: use actual bones
-    // Head bone: base angle 0.1 (looking at camera) + reactions
-    const baseHeadX=0.1; // look slightly up at camera
-    headGroup.rotation.x=lerp(headGroup.rotation.x,baseHeadX+A.headTiltX+idleX+nod,s);
-    headGroup.rotation.y=lerp(headGroup.rotation.y,A.headTiltY+idleY+shake,s);
-    headGroup.rotation.z=lerp(headGroup.rotation.z,A.headTiltZ,s);
+    const baseHeadX=0.15; // look at camera
+    // Use larger values so movement is clearly visible
+    const targetX=baseHeadX+A.headTiltX*2+idleX*3+nod;
+    const targetY=A.headTiltY*2+idleY*3+shake;
+    const targetZ=A.headTiltZ*2;
 
-    // Neck bone: subtle follow of head
+    if(headGroup.isBone){
+      headGroup.rotation.x=lerp(headGroup.rotation.x,targetX,s);
+      headGroup.rotation.y=lerp(headGroup.rotation.y,targetY,s);
+      headGroup.rotation.z=lerp(headGroup.rotation.z,targetZ,s);
+    } else {
+      headGroup.rotation.x=lerp(headGroup.rotation.x,targetX,s);
+      headGroup.rotation.y=lerp(headGroup.rotation.y,targetY,s);
+      headGroup.rotation.z=lerp(headGroup.rotation.z,targetZ,s);
+    }
+
+    // Neck bone
     if(STATE.neckBone){
-      STATE.neckBone.rotation.x=lerp(STATE.neckBone.rotation.x,A.headTiltX*0.3+idleX*0.5,s*0.5);
-      STATE.neckBone.rotation.y=lerp(STATE.neckBone.rotation.y,A.headTiltY*0.3+shake*0.3,s*0.5);
+      STATE.neckBone.rotation.x=lerp(STATE.neckBone.rotation.x,A.headTiltX*0.5+idleX,s*0.5);
+      STATE.neckBone.rotation.y=lerp(STATE.neckBone.rotation.y,A.headTiltY*0.5+shake*0.3,s*0.5);
     }
 
-    // Spine bone: lean forward/back
+    // Spine bone: lean
     if(STATE.spineBone){
-      STATE.spineBone.rotation.x=lerp(STATE.spineBone.rotation.x,A.leanZ*0.3+b,s*0.3);
+      STATE.spineBone.rotation.x=lerp(STATE.spineBone.rotation.x,A.leanZ*0.5+b*2,s*0.3);
     }
 
-    // Eye bones: subtle look direction
+    // Eye bones
     if(STATE.leftEyeBone){
-      STATE.leftEyeBone.rotation.y=lerp(STATE.leftEyeBone.rotation.y,Math.sin(t*0.45)*0.05,0.1);
+      STATE.leftEyeBone.rotation.y=lerp(STATE.leftEyeBone.rotation.y,Math.sin(t*0.45)*0.08,0.1);
     }
     if(STATE.rightEyeBone){
-      STATE.rightEyeBone.rotation.y=lerp(STATE.rightEyeBone.rotation.y,Math.sin(t*0.45)*0.05,0.1);
+      STATE.rightEyeBone.rotation.y=lerp(STATE.rightEyeBone.rotation.y,Math.sin(t*0.45)*0.08,0.1);
     }
-
-    // Body lean via npcGroup
-    if(npcGroup) npcGroup.position.z=lerp(npcGroup.position.z,A.leanZ*0.3+0.3,s*0.5); // 0.3 base offset to stay near desk
 
   } else {
     // Built-in character
