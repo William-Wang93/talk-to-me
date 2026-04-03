@@ -1216,9 +1216,10 @@ function stopAllAudio(){
   }
   if(window.speechSynthesis)speechSynthesis.cancel();
   STATE.talking=false;
-  STATE._pendingTypewrite=null;
   if(STATE.typewriterInterval){clearInterval(STATE.typewriterInterval);STATE.typewriterInterval=null;}
   if(STATE._typewriteFallbackTimer){clearTimeout(STATE._typewriteFallbackTimer);STATE._typewriteFallbackTimer=null;}
+  // NOTE: do NOT clear _pendingTypewrite here — speakNPC calls stopAllAudio
+  // before the new _pendingTypewrite is set. Clearing it on exit is handled separately.
 }
 
 function speakNPC(text,voiceType){
@@ -1652,6 +1653,7 @@ function checkTurnEnd(){
 
 function quitConversation(){
   stopAllAudio();
+  STATE._pendingTypewrite=null;
   if(STATE.turn>0){
     document.getElementById('quitBtn').textContent='Calculating...';
     document.getElementById('quitBtn').disabled=true;
@@ -1666,6 +1668,7 @@ function quitConversation(){
 
 function restartToMenu(){
   stopAllAudio();
+  STATE._pendingTypewrite=null;
   // Hide results and main app
   document.getElementById('resultsOverlay').classList.remove('visible');
   document.getElementById('mainApp').style.display='none';
