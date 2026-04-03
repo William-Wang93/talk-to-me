@@ -1202,6 +1202,14 @@ function startScenario(key){
   STATE.fillerCounts={um:0,uh:0,like:0,you_know:0,so:0,basically:0,actually:0,right:0};
   STATE.totalWords=0;STATE.audioRecordings=[];STATE.rawTranscripts=[];
   updateFillerUI({});
+  // Rebuild character if it was removed
+  if(!npcGroup||!npcGroup.parent){
+    if(npcGroup&&scene)scene.remove(npcGroup);
+    npcGroup=null;headGroup=null;torsoMesh=null;neckMesh=null;mouthMesh=null;
+    leftBrow=null;rightBrow=null;leftEyeGroup=null;rightEyeGroup=null;
+    if(MODEL_URL) loadExternalModel(MODEL_URL);
+    else buildCharacter();
+  }
   document.getElementById('startScreen').classList.add('hidden');document.getElementById('mainApp').style.display='';
   document.getElementById('npcName').textContent=s.npcName;document.getElementById('scenarioLabel').textContent='Scenario: '+s.title;
   typeAndSpeak(s.opening,s.voice);addChat('npc',s.npcName+': '+s.opening);
@@ -1299,8 +1307,6 @@ function restartToMenu(){
   document.getElementById('chatLog').innerHTML='<div class="chat-msg system">Select a scenario to begin...</div>';
   // Revoke audio URLs to free memory
   STATE.audioRecordings.forEach(rec=>{if(rec.blobUrl)URL.revokeObjectURL(rec.blobUrl);});
-  // Clean up 3D scene
-  if(npcGroup&&scene){scene.remove(npcGroup);npcGroup=null;headGroup=null;}
 }
 
 async function endConversation(){
