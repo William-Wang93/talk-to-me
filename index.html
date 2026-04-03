@@ -1399,10 +1399,38 @@ function startPresence(){
             const sizeScore=faceRatio>0.25&&faceRatio<0.7?90:faceRatio>0.15?60:30;
             posture=centerScore*0.4+tiltScore*0.3+sizeScore*0.3;
 
-            // === EYE CONTACT: gaze direction from iris position ===
+            // === EYE CONTACT: multi-signal gaze detection ===
             const leftEyePts=landmarks.getLeftEye();
             const rightEyePts=landmarks.getRightEye();
-            // Eye openness (EAR - eye aspect ratio)
+
+            // Signal 1: Head yaw (are you facing the camera?)
+            // Nose tip horizontal position within the face bounding box
+            // 0.5 = centered/facing camera, <0.4 or >0.6 = turned away
+            const nose=landmarks.getNose();
+            const noseTip=nose[3]||nose[0];
+            const noseInBox=(noseTip.x-box.x)/box.width; // 0-1, 0.5=centered
+            const headYawDeviation=Math.abs(noseInBox-0.5)*2; // 0=centered, 1=fully turned
+            const headYawScore=Math.max(0,100-headYawDeviation*150); // harsh penalty
+
+            // Signal 2: Eye gaze direction (where are your pupils pointing?)
+            // With 68 landmarks, eye points are: 0=outer corner, 3=inner corner
+            // Points 1,2 are upper lid, 4,5 are lower lid
+            // The "pupil" position is approximated by the eye center vs the geometric center of the eye outline
+            function eyeGazeOffset(eyePts){
+              // Geometric center of all eye points (includes lids — biased toward where eye is looking)
+              const cx=eyePts.reduce((s,p)=>s+p.x,0)/eyePts.length;
+              // Midpoint of the eye (between outer and inner corners)
+              const midX=(eyePts[0].x+eyePts[3].x)/2;
+              const eyeWidth=Math.abs(eyePts[3].x-eyePts[0].x)||1;
+              // How far the eye center is from the geometric midpoint, normalized by eye width
+              return(cx-midX)/eyeWidth;
+            }
+            const lGaze=eyeGazeOffset(leftEyePts);
+            const rGaze=eyeGazeOffset(rightEyePts);
+            const avgGaze=Math.abs((lGaze+rGaze)/2);
+            const gazeScore=Math.max(0,100-avgGaze*400); // sensitive to small shifts
+
+            // Signal 3: Eye openness (EAR - eye aspect ratio)
             function eyeAspectRatio(eye){
               const w=Math.sqrt((eye[3].x-eye[0].x)**2+(eye[3].y-eye[0].y)**2);
               const h1=Math.sqrt((eye[1].x-eye[5].x)**2+(eye[1].y-eye[5].y)**2);
@@ -1411,15 +1439,20 @@ function startPresence(){
             }
             const lEAR=eyeAspectRatio(leftEyePts),rEAR=eyeAspectRatio(rightEyePts);
             const avgEAR=(lEAR+rEAR)/2;
-            // Gaze: nose tip position relative to face bounding box center
-            const nose=landmarks.getNose();
-            const noseTip=nose[3]||nose[0];
-            const noseOffsetX=Math.abs(noseTip.x-faceCenterX)/(box.width/2);
-            const noseOffsetY=(noseTip.y-box.y)/box.height;
-            // Looking at camera: nose centered, eyes open
-            const gazeScore=Math.max(0,100-noseOffsetX*80);
-            const openScore=avgEAR>0.2?90:avgEAR>0.15?60:20; // eyes open
-            eyeContact=gazeScore*0.7+openScore*0.3;
+            const openScore=avgEAR>0.22?90:avgEAR>0.17?65:avgEAR>0.12?35:10;
+
+            // Signal 4: Face symmetry (left vs right face width from nose)
+            // When head is turned, one cheek appears wider than the other
+            const jaw=landmarks.getJawOutline();
+            const leftJawDist=Math.abs(noseTip.x-jaw[0].x);
+            const rightJawDist=Math.abs(noseTip.x-jaw[16].x);
+            const symmetryRatio=Math.min(leftJawDist,rightJawDist)/(Math.max(leftJawDist,rightJawDist)||1);
+            const symmetryScore=Math.max(0,symmetryRatio*100);
+
+            // Combine: head direction is the strongest signal
+            eyeContact=headYawScore*0.35+gazeScore*0.25+symmetryScore*0.25+openScore*0.15;
+
+            if(fc<5)console.log('[TALK TO ME] Eye contact breakdown — headYaw:',Math.round(headYawScore),'gaze:',Math.round(gazeScore),'symmetry:',Math.round(symmetryScore),'open:',Math.round(openScore),'total:',Math.round(eyeContact));
 
             // === COMPOSURE: face position stability ===
             const nosePos={x:noseTip.x,y:noseTip.y};
