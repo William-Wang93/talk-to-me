@@ -287,11 +287,9 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-detection"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-detection@1.0.4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.5"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ============================================================
@@ -1320,28 +1318,48 @@ let faceDetector=null;
 async function initWebcam(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:'user'}});
-    STATE.videoStream=stream;const v=document.getElementById('webcamVideo');v.srcObject=stream;v.style.display='block';
-    document.getElementById('camOffMsg').style.display='none';STATE.webcamOn=true;
-    document.getElementById('pillCam').className='pill active';document.getElementById('pillCam').textContent='Cam On';
+    STATE.videoStream=stream;
+    const v=document.getElementById('webcamVideo');
+    v.srcObject=stream;v.style.display='block';
+    document.getElementById('camOffMsg').style.display='none';
+    STATE.webcamOn=true;
+    document.getElementById('pillCam').className='pill active';
+    document.getElementById('pillCam').textContent='Cam On';
     document.getElementById('camToggle').textContent='Loading face model...';
+
+    // Wait for video to actually start playing
+    await new Promise((resolve)=>{
+      if(v.readyState>=2){resolve();return;}
+      v.onloadeddata=()=>resolve();
+      // Fallback timeout
+      setTimeout(resolve,3000);
+    });
+    console.log('[TALK TO ME] Video ready, readyState:',v.readyState,'dimensions:',v.videoWidth,'x',v.videoHeight);
+
     // Load TensorFlow.js face landmarks model
     try{
+      if(typeof faceLandmarksDetection==='undefined') throw new Error('faceLandmarksDetection not loaded');
+      if(typeof tf==='undefined') throw new Error('tf not loaded');
       await tf.setBackend('webgl');
       await tf.ready();
+      console.log('[TALK TO ME] TF.js backend ready:',tf.getBackend());
       const model=faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
       faceDetector=await faceLandmarksDetection.createDetector(model,{
         runtime:'tfjs',
-        refineLandmarks:true, // enables iris tracking
+        refineLandmarks:true,
         maxFaces:1
       });
       document.getElementById('camToggle').textContent='Webcam + AI Active';
-      console.log('[TALK TO ME] Face landmark model loaded');
+      console.log('[TALK TO ME] Face landmark model loaded successfully');
     }catch(e){
       console.warn('[TALK TO ME] Face model failed to load, using basic detection:',e);
       document.getElementById('camToggle').textContent='Webcam Enabled (basic)';
     }
     startPresence();
-  }catch(e){document.getElementById('camOffMsg').innerHTML='Camera denied<br>Presence disabled';}
+  }catch(e){
+    console.error('[TALK TO ME] Webcam init failed:',e);
+    document.getElementById('camOffMsg').innerHTML='Camera denied<br>Presence disabled';
+  }
 }
 
 // Face landmark indices for key features
@@ -1415,13 +1433,15 @@ function startPresence(){
       try{
         let posture=50,eyeContact=50,composure=70,engagement=50;
 
-        if(faceDetector&&v.readyState>=2){
+        if(faceDetector&&v.readyState>=2&&v.videoWidth>0){
           const faces=await faceDetector.estimateFaces(v,{flipHorizontal:false});
-          if(faces.length>0){
+          if(faces.length>0&&faces[0].keypoints&&faces[0].keypoints.length>100){
             STATE.faceDetected=true;
             const face=faces[0];
             const kp=face.keypoints;
             const videoW=v.videoWidth||320,videoH=v.videoHeight||240;
+
+            if(fc<3)console.log('[TALK TO ME] Face detected, keypoints:',kp.length,'video:',videoW,'x',videoH);
 
             // Analyze face landmarks
             const analysis=analyzeface(kp,videoW,videoH);
@@ -1443,18 +1463,17 @@ function startPresence(){
             const recentMotion=motionHistory.slice(-10);
             if(recentMotion.length>0){
               const recentAvg=recentMotion.reduce((a,b)=>a+b,0)/recentMotion.length;
-              // Sweet spot: 1-5 pixels of motion is engaged, <1 is frozen, >8 is fidgety
-              if(recentAvg<0.5)engagement=35; // too still
-              else if(recentAvg<3)engagement=80+recentAvg*5; // good range
-              else if(recentAvg<6)engagement=70; // moderate
-              else engagement=Math.max(20,60-recentAvg*3); // too fidgety
+              if(recentAvg<0.5)engagement=35;
+              else if(recentAvg<3)engagement=80+recentAvg*5;
+              else if(recentAvg<6)engagement=70;
+              else engagement=Math.max(20,60-recentAvg*3);
             }
 
-            // Update overlay border
             const avg=(posture+eyeContact+composure+engagement)/4;
             document.getElementById('webcamOverlay').className='webcam-overlay '+(avg>65?'good':avg>40?'warn':'bad');
           } else {
             STATE.faceDetected=false;
+            if(fc<5)console.log('[TALK TO ME] No face detected, faces:',faces.length);
             posture=0;eyeContact=0;composure=0;engagement=0;
             document.getElementById('webcamOverlay').className='webcam-overlay bad';
           }
