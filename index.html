@@ -356,7 +356,7 @@ function initThree(){
   if(MODEL_URL){
     loadExternalModel(MODEL_URL);
   } else {
-    buildCharacter();
+    buildCharacter('interview');
   }
   window.addEventListener('resize',()=>{const w2=c.clientWidth,h2=c.clientHeight;camera.aspect=w2/h2;camera.updateProjectionMatrix();threeRenderer.setSize(w2,h2);});
 }
@@ -473,12 +473,12 @@ async function loadExternalModel(url){
       },
       (err)=>{
         console.error('[TALK TO ME] Model load failed:',err);
-        buildCharacter();
+        buildCharacter(STATE.scenario||'interview');
       }
     );
   }catch(e){
     console.error('[TALK TO ME] GLTFLoader setup failed:',e);
-    buildCharacter();
+    buildCharacter(STATE.scenario||'interview');
   }
 }
 function flat(c){return new THREE.MeshPhongMaterial({color:c,flatShading:true,shininess:5});}
@@ -685,135 +685,203 @@ function buildRoom(){
   }
 }
 
-function buildCharacter(){
+// Character appearance configs per scenario
+const CHAR_LOOKS={
+  interview:{ // Sarah Chen - Asian woman, professional, dark hair bun, blazer
+    skin:0xf0d0a8, skinSh:0xdaba8a, skinHi:0xf8ddb8,
+    hair:0x1a1218, iris:0x3a2818,
+    cloth:0x2a3048, clothDk:0x1e2438, shirt:0xe8e0d5, pants:0x2a3048,
+    lip:0xc08878, shoe:0x1a1818,
+    gender:'f', hairStyle:'bun', features:'cheekbones',
+    shoulderW:0.26, torsoW:[0.18,0.22]
+  },
+  networking:{ // James Park - Asian man, relaxed, styled hair, sport coat
+    skin:0xe8c8a0, skinSh:0xd0b088, skinHi:0xf0d8b0,
+    hair:0x1a1418, iris:0x2a2018,
+    cloth:0x4a5a3a, clothDk:0x3a4a2e, shirt:0xf0ebe0, pants:0x3a3a3a,
+    lip:0xb08070, shoe:0x2a2220,
+    gender:'m', hairStyle:'styled', features:'jaw',
+    shoulderW:0.32, torsoW:[0.22,0.28]
+  },
+  difficult:{ // Alex Rivera - Hispanic man, younger, short hair, casual
+    skin:0xd4a878, skinSh:0xc09468, skinHi:0xe0b888,
+    hair:0x2a1a10, iris:0x3a2a18,
+    cloth:0x5a6878, clothDk:0x4a5868, shirt:0xddd8d0, pants:0x3a3a40,
+    lip:0xa87868, shoe:0x222222,
+    gender:'m', hairStyle:'short', features:'broader',
+    shoulderW:0.30, torsoW:[0.20,0.26]
+  },
+  pitch:{ // Dr. Lisa Wong - Asian woman, older, glasses, elegant
+    skin:0xeecca0, skinSh:0xd8b888, skinHi:0xf5d8b0,
+    hair:0x1a1215, iris:0x2a2015,
+    cloth:0x6a2a3a, clothDk:0x5a1e2e, shirt:0xf0eae0, pants:0x3a3038,
+    lip:0xc08878, shoe:0x1a1515,
+    gender:'f', hairStyle:'short_f', features:'glasses',
+    shoulderW:0.25, torsoW:[0.17,0.21]
+  }
+};
+
+function buildCharacter(scenarioKey){
   npcGroup=new THREE.Group();
-  const skin=smooth(0xd4b892,8),skinSh=smooth(0xc0a070,5),skinHi=smooth(0xe0c8a0,10);
-  const hair=smooth(0x3a2a1a,5),cloth=smooth(0x3d5a6a,8),clothDk=smooth(0x2e4a58,6);
-  const shirtCol=smooth(0xe8e0d5,10),pantsCol=smooth(0x3a3a42,6);
+  const look=CHAR_LOOKS[scenarioKey]||CHAR_LOOKS.interview;
+  const skin=smooth(look.skin,8),skinSh=smooth(look.skinSh,5),skinHi=smooth(look.skinHi,10);
+  const hair=smooth(look.hair,5),cloth=smooth(look.cloth,8),clothDk=smooth(look.clothDk,6);
+  const shirtCol=smooth(look.shirt,10),pantsCol=smooth(look.pants,6);
   const eyeW=new THREE.MeshBasicMaterial({color:0xf0ece5}),pupil=new THREE.MeshBasicMaterial({color:0x1a1510});
-  const lip=smooth(0xb88878,5);
-  const shoeMat=smooth(0x2a2220,10);
+  const lip=smooth(look.lip,5);
+  const shoeMat=smooth(look.shoe,10);
+  const isFemale=look.gender==='f';
 
-  // === LEGS (seated on chair, visible below desk) ===
-  // Upper legs (thighs) - going forward from chair
-  const thighGeo=new THREE.CylinderGeometry(0.09,0.1,0.5,6);
-  const leftThigh=new THREE.Mesh(thighGeo,pantsCol);leftThigh.position.set(-0.15,0.55,0.18);leftThigh.rotation.x=-1.35;leftThigh.castShadow=true;npcGroup.add(leftThigh);
-  const rightThigh=new THREE.Mesh(thighGeo,pantsCol);rightThigh.position.set(0.15,0.55,0.18);rightThigh.rotation.x=-1.35;rightThigh.castShadow=true;npcGroup.add(rightThigh);
-  // Lower legs (shins)
-  const shinGeo=new THREE.CylinderGeometry(0.065,0.07,0.45,5);
-  const leftShin=new THREE.Mesh(shinGeo,pantsCol);leftShin.position.set(-0.15,0.27,0.48);leftShin.rotation.x=-0.1;leftShin.castShadow=true;npcGroup.add(leftShin);
-  const rightShin=new THREE.Mesh(shinGeo,pantsCol);rightShin.position.set(0.15,0.27,0.48);rightShin.rotation.x=-0.1;rightShin.castShadow=true;npcGroup.add(rightShin);
-  // Shoes
-  const shoeGeo=new THREE.BoxGeometry(0.09,0.05,0.16);
-  const leftShoe=new THREE.Mesh(shoeGeo,shoeMat);leftShoe.position.set(-0.15,0.03,0.55);npcGroup.add(leftShoe);
-  const rightShoe=new THREE.Mesh(shoeGeo,shoeMat);rightShoe.position.set(0.15,0.03,0.55);npcGroup.add(rightShoe);
+  // === LEGS ===
+  const thighGeo=new THREE.CylinderGeometry(isFemale?0.075:0.09,isFemale?0.085:0.1,0.5,6);
+  const leftThigh=new THREE.Mesh(thighGeo,pantsCol);leftThigh.position.set(-0.13,0.55,0.18);leftThigh.rotation.x=-1.35;leftThigh.castShadow=true;npcGroup.add(leftThigh);
+  const rightThigh=new THREE.Mesh(thighGeo,pantsCol);rightThigh.position.set(0.13,0.55,0.18);rightThigh.rotation.x=-1.35;rightThigh.castShadow=true;npcGroup.add(rightThigh);
+  const shinGeo=new THREE.CylinderGeometry(isFemale?0.05:0.065,isFemale?0.055:0.07,0.45,5);
+  const leftShin=new THREE.Mesh(shinGeo,pantsCol);leftShin.position.set(-0.13,0.27,0.48);leftShin.rotation.x=-0.1;npcGroup.add(leftShin);
+  const rightShin=new THREE.Mesh(shinGeo,pantsCol);rightShin.position.set(0.13,0.27,0.48);rightShin.rotation.x=-0.1;npcGroup.add(rightShin);
+  // Shoes (smaller for women)
+  const shW=isFemale?0.07:0.09,shL=isFemale?0.13:0.16;
+  const leftShoe=new THREE.Mesh(new THREE.BoxGeometry(shW,0.05,shL),shoeMat);leftShoe.position.set(-0.13,0.03,0.55);npcGroup.add(leftShoe);
+  const rightShoe=new THREE.Mesh(new THREE.BoxGeometry(shW,0.05,shL),shoeMat);rightShoe.position.set(0.13,0.03,0.55);npcGroup.add(rightShoe);
 
-  // === TORSO (seated upright behind desk) ===
-  // Lower torso / hips
-  const hips=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.28,0.2,6),pantsCol);hips.position.set(0,0.62,0);hips.castShadow=true;npcGroup.add(hips);
-  // Belt
-  const belt=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.04,8),smooth(0x3a3028,12));belt.position.set(0,0.72,0);npcGroup.add(belt);
-
-  // Main torso with shirt
-  torsoMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.26,0.55,6),cloth);
+  // === TORSO ===
+  const hips=new THREE.Mesh(new THREE.CylinderGeometry(isFemale?0.19:0.22,isFemale?0.24:0.28,0.2,6),pantsCol);hips.position.set(0,0.62,0);hips.castShadow=true;npcGroup.add(hips);
+  const belt=new THREE.Mesh(new THREE.CylinderGeometry(isFemale?0.20:0.24,isFemale?0.20:0.24,0.04,8),smooth(0x3a3028,12));belt.position.set(0,0.72,0);npcGroup.add(belt);
+  torsoMesh=new THREE.Mesh(new THREE.CylinderGeometry(look.torsoW[0],look.torsoW[1],0.55,6),cloth);
   torsoMesh.position.set(0,1.0,0);torsoMesh.castShadow=true;npcGroup.add(torsoMesh);
+  const collar=new THREE.Mesh(new THREE.CylinderGeometry(isFemale?0.10:0.12,isFemale?0.15:0.18,0.08,6),shirtCol);collar.position.set(0,1.3,0.02);npcGroup.add(collar);
+  // Shoulders
+  const shL2=new THREE.Mesh(new THREE.SphereGeometry(isFemale?0.08:0.1,5,4),cloth);shL2.position.set(-look.shoulderW,1.24,0);shL2.scale.set(1,0.7,0.8);npcGroup.add(shL2);
+  const shR2=new THREE.Mesh(new THREE.SphereGeometry(isFemale?0.08:0.1,5,4),cloth);shR2.position.set(look.shoulderW,1.24,0);shR2.scale.set(1,0.7,0.8);npcGroup.add(shR2);
 
-  // Collar area
-  const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.18,0.08,6),shirtCol);collar.position.set(0,1.3,0.02);npcGroup.add(collar);
-
-  // Shoulders (broader, more natural)
-  const shL=new THREE.Mesh(new THREE.SphereGeometry(0.1,5,4),cloth);shL.position.set(-0.3,1.24,0);shL.scale.set(1,0.7,0.8);npcGroup.add(shL);
-  const shR=new THREE.Mesh(new THREE.SphereGeometry(0.1,5,4),cloth);shR.position.set(0.3,1.24,0);shR.scale.set(1,0.7,0.8);npcGroup.add(shR);
-
-  // === ARMS (resting on desk naturally) ===
-  // Upper arms
-  const uArmGeo=new THREE.CylinderGeometry(0.055,0.07,0.35,5);
-  const leftUArm=new THREE.Mesh(uArmGeo,cloth);leftUArm.position.set(-0.34,1.05,0.12);leftUArm.rotation.x=-0.5;leftUArm.rotation.z=0.2;npcGroup.add(leftUArm);
-  const rightUArm=new THREE.Mesh(uArmGeo,cloth);rightUArm.position.set(0.34,1.05,0.12);rightUArm.rotation.x=-0.5;rightUArm.rotation.z=-0.2;npcGroup.add(rightUArm);
-  // Forearms (reaching toward desk)
-  const fArmGeo=new THREE.CylinderGeometry(0.04,0.055,0.35,5);
-  const leftFArm=new THREE.Mesh(fArmGeo,shirtCol);leftFArm.position.set(-0.32,0.86,0.42);leftFArm.rotation.x=-1.2;leftFArm.rotation.z=0.08;npcGroup.add(leftFArm);
-  const rightFArm=new THREE.Mesh(fArmGeo,shirtCol);rightFArm.position.set(0.32,0.86,0.42);rightFArm.rotation.x=-1.2;rightFArm.rotation.z=-0.08;npcGroup.add(rightFArm);
-  // Hands on desk
-  const handGeo=new THREE.SphereGeometry(0.04,4,3);
-  const leftHand=new THREE.Mesh(handGeo,skin);leftHand.position.set(-0.28,0.82,0.62);leftHand.scale.set(1.1,0.5,1.3);npcGroup.add(leftHand);
-  const rightHand=new THREE.Mesh(handGeo,skin);rightHand.position.set(0.28,0.82,0.62);rightHand.scale.set(1.1,0.5,1.3);npcGroup.add(rightHand);
+  // === ARMS ===
+  const armW=isFemale?0.045:0.055;const armW2=isFemale?0.06:0.07;
+  const uArmGeo=new THREE.CylinderGeometry(armW,armW2,0.35,5);
+  const leftUArm=new THREE.Mesh(uArmGeo,cloth);leftUArm.position.set(-look.shoulderW-0.04,1.05,0.12);leftUArm.rotation.x=-0.5;leftUArm.rotation.z=0.2;npcGroup.add(leftUArm);
+  const rightUArm=new THREE.Mesh(uArmGeo,cloth);rightUArm.position.set(look.shoulderW+0.04,1.05,0.12);rightUArm.rotation.x=-0.5;rightUArm.rotation.z=-0.2;npcGroup.add(rightUArm);
+  const fArmGeo=new THREE.CylinderGeometry(isFemale?0.032:0.04,armW,0.35,5);
+  const leftFArm=new THREE.Mesh(fArmGeo,shirtCol);leftFArm.position.set(-look.shoulderW-0.02,0.86,0.42);leftFArm.rotation.x=-1.2;leftFArm.rotation.z=0.08;npcGroup.add(leftFArm);
+  const rightFArm=new THREE.Mesh(fArmGeo,shirtCol);rightFArm.position.set(look.shoulderW+0.02,0.86,0.42);rightFArm.rotation.x=-1.2;rightFArm.rotation.z=-0.08;npcGroup.add(rightFArm);
+  const handGeo=new THREE.SphereGeometry(isFemale?0.032:0.04,4,3);
+  const leftHand=new THREE.Mesh(handGeo,skin);leftHand.position.set(-0.26,0.82,0.62);leftHand.scale.set(1.1,0.5,1.3);npcGroup.add(leftHand);
+  const rightHand=new THREE.Mesh(handGeo,skin);rightHand.position.set(0.26,0.82,0.62);rightHand.scale.set(1.1,0.5,1.3);npcGroup.add(rightHand);
 
   // === NECK ===
-  neckMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.12,6),skin);neckMesh.position.set(0,1.38,0);npcGroup.add(neckMesh);
+  neckMesh=new THREE.Mesh(new THREE.CylinderGeometry(isFemale?0.06:0.07,isFemale?0.07:0.09,0.12,6),skin);neckMesh.position.set(0,1.38,0);npcGroup.add(neckMesh);
 
   // === HEAD ===
   headGroup=new THREE.Group();headGroup.position.set(0,1.58,0);
-
-  // Head shape (rounder, more natural)
-  const hg=new THREE.SphereGeometry(0.22,8,6);hg.scale(1,1.15,0.95);
+  const headScale=isFemale?0.20:0.22;
+  const hg=new THREE.SphereGeometry(headScale,8,6);hg.scale(1,1.15,0.95);
   const headMesh=new THREE.Mesh(hg,skin);headMesh.castShadow=true;headGroup.add(headMesh);
 
-  // Jaw / chin definition
-  const jaw=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.08,0.14),skinSh);jaw.position.set(0,-0.18,0.06);headGroup.add(jaw);
+  // Jaw (narrower for women)
+  const jawW=isFemale?0.14:0.18;
+  const jaw=new THREE.Mesh(new THREE.BoxGeometry(jawW,0.08,0.14),skinSh);jaw.position.set(0,-0.18,0.06);headGroup.add(jaw);
 
-  // Cheekbones
-  const cheekGeo=new THREE.SphereGeometry(0.06,4,3);
-  const lCheek=new THREE.Mesh(cheekGeo,skinHi);lCheek.position.set(-0.14,-0.02,0.14);lCheek.scale.set(1,0.7,0.6);headGroup.add(lCheek);
-  const rCheek=new THREE.Mesh(cheekGeo,skinHi);rCheek.position.set(0.14,-0.02,0.14);rCheek.scale.set(1,0.7,0.6);headGroup.add(rCheek);
+  // Cheekbones (more prominent for 'cheekbones' feature)
+  const cheekScale=look.features==='cheekbones'?1.1:1;
+  const cheekGeo=new THREE.SphereGeometry(0.06*cheekScale,4,3);
+  const lCheek=new THREE.Mesh(cheekGeo,skinHi);lCheek.position.set(-0.12,-0.02,0.14);lCheek.scale.set(1,0.7,0.6);headGroup.add(lCheek);
+  const rCheek=new THREE.Mesh(cheekGeo,skinHi);rCheek.position.set(0.12,-0.02,0.14);rCheek.scale.set(1,0.7,0.6);headGroup.add(rCheek);
 
-  // Nose (more defined)
-  const nose=new THREE.Mesh(new THREE.ConeGeometry(0.028,0.08,4),skinSh);nose.position.set(0,-0.02,0.22);nose.rotation.x=0.3;headGroup.add(nose);
-  const noseBridge=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.06,0.04),skinSh);noseBridge.position.set(0,0.04,0.2);headGroup.add(noseBridge);
+  // Nose
+  const noseSize=isFemale?0.022:0.028;
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(noseSize,isFemale?0.06:0.08,4),skinSh);nose.position.set(0,-0.02,0.20);nose.rotation.x=0.3;headGroup.add(nose);
+  const noseBridge=new THREE.Mesh(new THREE.BoxGeometry(0.025,0.05,0.035),skinSh);noseBridge.position.set(0,0.04,0.18);headGroup.add(noseBridge);
 
-  // === EYES (larger, more expressive) ===
-  const eyeGeo=new THREE.BoxGeometry(0.075,0.035,0.03);
-  // Eye sockets (slight shadow)
-  const socketMat=smooth(0xc0a880,3);
-  const lSocket=new THREE.Mesh(new THREE.SphereGeometry(0.05,4,3),socketMat);lSocket.position.set(-0.08,0.04,0.17);lSocket.scale.set(1,0.6,0.4);headGroup.add(lSocket);
-  const rSocket=new THREE.Mesh(new THREE.SphereGeometry(0.05,4,3),socketMat);rSocket.position.set(0.08,0.04,0.17);rSocket.scale.set(1,0.6,0.4);headGroup.add(rSocket);
+  // === EYES ===
+  const eyeGeo=new THREE.BoxGeometry(isFemale?0.07:0.075,0.035,0.03);
+  const socketMat=smooth(look.skinSh-0x101010||0xb09870,3);
+  const lSocket=new THREE.Mesh(new THREE.SphereGeometry(0.05,4,3),socketMat);lSocket.position.set(-0.08,0.04,0.16);lSocket.scale.set(1,0.6,0.4);headGroup.add(lSocket);
+  const rSocket=new THREE.Mesh(new THREE.SphereGeometry(0.05,4,3),socketMat);rSocket.position.set(0.08,0.04,0.16);rSocket.scale.set(1,0.6,0.4);headGroup.add(rSocket);
 
   leftEyeGroup=new THREE.Group();
   leftEyeGroup.add(new THREE.Mesh(eyeGeo,eyeW));
   const lPupil=new THREE.Mesh(new THREE.BoxGeometry(0.032,0.03,0.02),pupil);lPupil.position.z=0.016;leftEyeGroup.add(lPupil);
-  // Iris color
-  const irisMat=new THREE.MeshBasicMaterial({color:0x4a6844});
+  const irisMat=new THREE.MeshBasicMaterial({color:look.iris});
   const lIris=new THREE.Mesh(new THREE.BoxGeometry(0.038,0.032,0.015),irisMat);lIris.position.z=0.012;leftEyeGroup.add(lIris);
-  leftEyeGroup.position.set(-0.08,0.05,0.2);headGroup.add(leftEyeGroup);
+  leftEyeGroup.position.set(-0.08,0.05,0.19);headGroup.add(leftEyeGroup);
 
   rightEyeGroup=new THREE.Group();
   rightEyeGroup.add(new THREE.Mesh(eyeGeo,eyeW));
   const rPupil=new THREE.Mesh(new THREE.BoxGeometry(0.032,0.03,0.02),pupil);rPupil.position.z=0.016;rightEyeGroup.add(rPupil);
   const rIris=new THREE.Mesh(new THREE.BoxGeometry(0.038,0.032,0.015),irisMat);rIris.position.z=0.012;rightEyeGroup.add(rIris);
-  rightEyeGroup.position.set(0.08,0.05,0.2);headGroup.add(rightEyeGroup);
+  rightEyeGroup.position.set(0.08,0.05,0.19);headGroup.add(rightEyeGroup);
 
-  // Eyelids (for squinting/blinking)
-  const lidMat=skin;
-  const lLidTop=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.012,0.035),lidMat);lLidTop.position.set(-0.08,0.07,0.2);headGroup.add(lLidTop);
-  const rLidTop=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.012,0.035),lidMat);rLidTop.position.set(0.08,0.07,0.2);headGroup.add(rLidTop);
+  // Eyelids
+  const lLidTop=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.012,0.035),skin);lLidTop.position.set(-0.08,0.07,0.19);headGroup.add(lLidTop);
+  const rLidTop=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.012,0.035),skin);rLidTop.position.set(0.08,0.07,0.19);headGroup.add(rLidTop);
 
-  // === EYEBROWS (thicker, more expressive) ===
+  // Eyebrows
   const browGeo=new THREE.BoxGeometry(0.08,0.016,0.025);
-  leftBrow=new THREE.Mesh(browGeo,hair);leftBrow.position.set(-0.08,0.082,0.2);headGroup.add(leftBrow);
-  rightBrow=new THREE.Mesh(browGeo,hair);rightBrow.position.set(0.08,0.082,0.2);headGroup.add(rightBrow);
+  leftBrow=new THREE.Mesh(browGeo,hair);leftBrow.position.set(-0.08,0.082,0.19);headGroup.add(leftBrow);
+  rightBrow=new THREE.Mesh(browGeo,hair);rightBrow.position.set(0.08,0.082,0.19);headGroup.add(rightBrow);
 
-  // === MOUTH (more detailed) ===
-  // Upper lip
-  mouthMesh=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.012,0.02),lip);mouthMesh.position.set(0,-0.1,0.18);headGroup.add(mouthMesh);
-  // Lower lip (slightly fuller)
-  const lowerLip=new THREE.Mesh(new THREE.BoxGeometry(0.065,0.014,0.018),smooth(0xc09080,5));lowerLip.position.set(0,-0.115,0.178);headGroup.add(lowerLip);
+  // Mouth
+  mouthMesh=new THREE.Mesh(new THREE.BoxGeometry(isFemale?0.06:0.07,0.012,0.02),lip);mouthMesh.position.set(0,-0.1,0.17);headGroup.add(mouthMesh);
+  const lowerLip=new THREE.Mesh(new THREE.BoxGeometry(isFemale?0.055:0.065,0.014,0.018),smooth(look.lip+0x101010||0xc09080,5));lowerLip.position.set(0,-0.115,0.168);headGroup.add(lowerLip);
 
-  // === HAIR ===
-  // Top
-  const hairTop=new THREE.Mesh(new THREE.SphereGeometry(0.24,6,4),hair);hairTop.position.set(0,0.12,-0.02);hairTop.scale.set(1,0.6,1);headGroup.add(hairTop);
-  // Sides
-  const sideHairGeo=new THREE.BoxGeometry(0.04,0.2,0.2);
-  const lHair=new THREE.Mesh(sideHairGeo,hair);lHair.position.set(-0.22,0.02,-0.02);headGroup.add(lHair);
-  const rHair=new THREE.Mesh(sideHairGeo,hair);rHair.position.set(0.22,0.02,-0.02);headGroup.add(rHair);
-  // Back
-  const backHair=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.25,0.06),hair);backHair.position.set(0,0.02,-0.2);headGroup.add(backHair);
-  // Front fringe
-  const fringe=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.06,0.08),hair);fringe.position.set(0,0.18,0.12);fringe.rotation.x=-0.15;headGroup.add(fringe);
+  // === HAIR (varies per character) ===
+  if(look.hairStyle==='bun'){
+    // Sarah Chen: neat bun, side-parted front
+    const hairTop=new THREE.Mesh(new THREE.SphereGeometry(0.22,6,4),hair);hairTop.position.set(0,0.1,-0.02);hairTop.scale.set(1,0.55,1);headGroup.add(hairTop);
+    const bun=new THREE.Mesh(new THREE.SphereGeometry(0.09,6,5),hair);bun.position.set(0,0.1,-0.2);headGroup.add(bun);
+    // Side-swept bangs
+    const bangs=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.05,0.1),hair);bangs.position.set(-0.04,0.17,0.12);bangs.rotation.z=0.08;bangs.rotation.x=-0.1;headGroup.add(bangs);
+    // Sides (tucked behind ears)
+    const lH=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.15,0.18),hair);lH.position.set(-0.20,0.02,-0.04);headGroup.add(lH);
+    const rH=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.15,0.18),hair);rH.position.set(0.20,0.02,-0.04);headGroup.add(rH);
+    const backHair=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.22,0.05),hair);backHair.position.set(0,0,-0.18);headGroup.add(backHair);
+  } else if(look.hairStyle==='styled'){
+    // James Park: styled up, thicker on top, neat sides
+    const hairTop=new THREE.Mesh(new THREE.SphereGeometry(0.24,6,4),hair);hairTop.position.set(0,0.14,-0.02);hairTop.scale.set(1,0.6,0.95);headGroup.add(hairTop);
+    // Volume on top
+    const topVol=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.06,0.25),hair);topVol.position.set(0,0.2,0);topVol.rotation.x=-0.1;headGroup.add(topVol);
+    // Neat sides
+    const lH=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.18,0.2),hair);lH.position.set(-0.22,0.02,-0.02);headGroup.add(lH);
+    const rH=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.18,0.2),hair);rH.position.set(0.22,0.02,-0.02);headGroup.add(rH);
+    const backHair=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.22,0.05),hair);backHair.position.set(0,0.02,-0.2);headGroup.add(backHair);
+  } else if(look.hairStyle==='short'){
+    // Alex Rivera: short cropped, slight fade
+    const hairTop=new THREE.Mesh(new THREE.SphereGeometry(0.23,6,4),hair);hairTop.position.set(0,0.1,0);hairTop.scale.set(1,0.45,0.95);headGroup.add(hairTop);
+    // Tight sides (fade effect - slightly lighter)
+    const fadeMat=smooth(look.hair+0x0a0a0a||0x2a2018,5);
+    const lH=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.12,0.18),fadeMat);lH.position.set(-0.21,0,-0.02);headGroup.add(lH);
+    const rH=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.12,0.18),fadeMat);rH.position.set(0.21,0,-0.02);headGroup.add(rH);
+    const backHair=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.15,0.04),fadeMat);backHair.position.set(0,-0.02,-0.18);headGroup.add(backHair);
+  } else if(look.hairStyle==='short_f'){
+    // Dr. Lisa Wong: short professional bob
+    const hairTop=new THREE.Mesh(new THREE.SphereGeometry(0.22,6,4),hair);hairTop.position.set(0,0.1,-0.02);hairTop.scale.set(1,0.55,1);headGroup.add(hairTop);
+    // Bob sides (shoulder length, angled)
+    const lH=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.22,0.2),hair);lH.position.set(-0.20,-0.02,-0.02);headGroup.add(lH);
+    const rH=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.22,0.2),hair);rH.position.set(0.20,-0.02,-0.02);headGroup.add(rH);
+    const backHair=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.24,0.05),hair);backHair.position.set(0,-0.02,-0.18);headGroup.add(backHair);
+    // Bangs
+    const bangs=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.04,0.08),hair);bangs.position.set(0,0.16,0.12);bangs.rotation.x=-0.1;headGroup.add(bangs);
+  }
+
+  // === GLASSES (Dr. Lisa Wong) ===
+  if(look.features==='glasses'){
+    const glassMat=smooth(0x444444,25);
+    // Frames
+    const lFrame=new THREE.Mesh(new THREE.TorusGeometry(0.045,0.005,4,8),glassMat);lFrame.position.set(-0.08,0.05,0.2);headGroup.add(lFrame);
+    const rFrame=new THREE.Mesh(new THREE.TorusGeometry(0.045,0.005,4,8),glassMat);rFrame.position.set(0.08,0.05,0.2);headGroup.add(rFrame);
+    // Bridge
+    const bridge=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.006,0.01),glassMat);bridge.position.set(0,0.055,0.21);headGroup.add(bridge);
+    // Temples
+    const lTemple=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.005,0.005),glassMat);lTemple.position.set(-0.15,0.055,0.15);lTemple.rotation.y=0.3;headGroup.add(lTemple);
+    const rTemple=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.005,0.005),glassMat);rTemple.position.set(0.15,0.055,0.15);rTemple.rotation.y=-0.3;headGroup.add(rTemple);
+    // Lenses (subtle tint)
+    const lensMat=new THREE.MeshPhongMaterial({color:0xddeeff,transparent:true,opacity:0.15,shininess:30});
+    const lLens=new THREE.Mesh(new THREE.PlaneGeometry(0.08,0.08),lensMat);lLens.position.set(-0.08,0.05,0.2);headGroup.add(lLens);
+    const rLens=new THREE.Mesh(new THREE.PlaneGeometry(0.08,0.08),lensMat);rLens.position.set(0.08,0.05,0.2);headGroup.add(rLens);
+  }
 
   // === EARS ===
   const earGeo=new THREE.SphereGeometry(0.03,4,3);
-  const lEar=new THREE.Mesh(earGeo,skinSh);lEar.position.set(-0.22,0.02,0.02);lEar.scale.set(0.5,1,0.7);headGroup.add(lEar);
-  const rEar=new THREE.Mesh(earGeo,skinSh);rEar.position.set(0.22,0.02,0.02);rEar.scale.set(0.5,1,0.7);headGroup.add(rEar);
+  const lEar=new THREE.Mesh(earGeo,skinSh);lEar.position.set(-0.21,0.02,0.02);lEar.scale.set(0.5,1,0.7);headGroup.add(lEar);
+  const rEar=new THREE.Mesh(earGeo,skinSh);rEar.position.set(0.21,0.02,0.02);rEar.scale.set(0.5,1,0.7);headGroup.add(rEar);
 
   npcGroup.add(headGroup);
   npcGroup.position.set(0,0,0);
@@ -1128,13 +1196,32 @@ function speakNPC(text,voiceType){
   if(!window.speechSynthesis)return;
   speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text.replace(/\*/g,''));
-  u.rate=0.95;u.pitch=voiceType==='female'?1.15:0.85;u.volume=0.9;
+  u.rate=0.92;u.volume=0.9;
   const voices=speechSynthesis.getVoices();
   if(voices.length){
-    const pref=voices.find(v=>voiceType==='female'?
-      /samantha|karen|female|zira|fiona/i.test(v.name):
-      /daniel|alex|male|david|tom/i.test(v.name));
-    if(pref)u.voice=pref;
+    // Prioritize natural/premium voices, then fall back to standard
+    let selected=null;
+    if(voiceType==='female'){
+      u.pitch=1.08;
+      // Try premium/natural voices first (Google, Microsoft Neural, Apple)
+      selected=voices.find(v=>/google.*us.*female|google.*uk.*female/i.test(v.name))
+        ||voices.find(v=>/microsoft.*aria|microsoft.*jenny|microsoft.*sara/i.test(v.name))
+        ||voices.find(v=>/samantha|karen|moira|tessa|fiona/i.test(v.name))
+        ||voices.find(v=>/female|woman/i.test(v.name)&&!/male/i.test(v.name))
+        ||voices.find(v=>v.name.includes('Google')&&/female/i.test(v.name));
+    } else {
+      u.pitch=0.9;
+      // Try premium/natural voices first
+      selected=voices.find(v=>/google.*us.*male|google.*uk.*male/i.test(v.name))
+        ||voices.find(v=>/microsoft.*guy|microsoft.*davis|microsoft.*ryan/i.test(v.name))
+        ||voices.find(v=>/daniel|alex|james|thomas|aaron/i.test(v.name)&&!/female/i.test(v.name))
+        ||voices.find(v=>/\bmale\b/i.test(v.name)&&!/female/i.test(v.name))
+        ||voices.find(v=>v.name.includes('Google')&&/male/i.test(v.name));
+    }
+    if(selected){
+      u.voice=selected;
+      console.log('[TALK TO ME] Using voice:',selected.name);
+    }
   }
   STATE.talking=true;
   u.onend=()=>{STATE.talking=false;};u.onerror=()=>{STATE.talking=false;};
@@ -1202,14 +1289,12 @@ function startScenario(key){
   STATE.fillerCounts={um:0,uh:0,like:0,you_know:0,so:0,basically:0,actually:0,right:0};
   STATE.totalWords=0;STATE.audioRecordings=[];STATE.rawTranscripts=[];
   updateFillerUI({});
-  // Rebuild character if it was removed
-  if(!npcGroup||!npcGroup.parent){
-    if(npcGroup&&scene)scene.remove(npcGroup);
-    npcGroup=null;headGroup=null;torsoMesh=null;neckMesh=null;mouthMesh=null;
-    leftBrow=null;rightBrow=null;leftEyeGroup=null;rightEyeGroup=null;
-    if(MODEL_URL) loadExternalModel(MODEL_URL);
-    else buildCharacter();
-  }
+  // Always rebuild character for this scenario's appearance
+  if(npcGroup&&scene)scene.remove(npcGroup);
+  npcGroup=null;headGroup=null;torsoMesh=null;neckMesh=null;mouthMesh=null;
+  leftBrow=null;rightBrow=null;leftEyeGroup=null;rightEyeGroup=null;
+  if(MODEL_URL) loadExternalModel(MODEL_URL);
+  else buildCharacter(key);
   document.getElementById('startScreen').classList.add('hidden');document.getElementById('mainApp').style.display='';
   document.getElementById('npcName').textContent=s.npcName;document.getElementById('scenarioLabel').textContent='Scenario: '+s.title;
   typeAndSpeak(s.opening,s.voice);addChat('npc',s.npcName+': '+s.opening);
