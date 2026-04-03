@@ -287,9 +287,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-detection@1.0.4"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.5"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ============================================================
@@ -1311,9 +1309,9 @@ function speakNPCFallback(text,voiceType){
 }
 
 // ============================================================
-// WEBCAM + TENSORFLOW.JS FACE DETECTION
+// WEBCAM + FACE-API.JS FACE DETECTION
 // ============================================================
-let faceDetector=null;
+let faceApiReady=false;
 
 async function initWebcam(){
   try{
@@ -1327,32 +1325,27 @@ async function initWebcam(){
     document.getElementById('pillCam').textContent='Cam On';
     document.getElementById('camToggle').textContent='Loading face model...';
 
-    // Wait for video to actually start playing
+    // Wait for video to be ready
     await new Promise((resolve)=>{
       if(v.readyState>=2){resolve();return;}
       v.onloadeddata=()=>resolve();
-      // Fallback timeout
       setTimeout(resolve,3000);
     });
-    console.log('[TALK TO ME] Video ready, readyState:',v.readyState,'dimensions:',v.videoWidth,'x',v.videoHeight);
+    console.log('[TALK TO ME] Video ready:',v.videoWidth,'x',v.videoHeight);
 
-    // Load TensorFlow.js face landmarks model
+    // Load face-api.js models from jsdelivr
     try{
-      if(typeof faceLandmarksDetection==='undefined') throw new Error('faceLandmarksDetection not loaded');
-      if(typeof tf==='undefined') throw new Error('tf not loaded');
-      await tf.setBackend('webgl');
-      await tf.ready();
-      console.log('[TALK TO ME] TF.js backend ready:',tf.getBackend());
-      const model=faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-      faceDetector=await faceLandmarksDetection.createDetector(model,{
-        runtime:'tfjs',
-        refineLandmarks:true,
-        maxFaces:1
-      });
+      if(typeof faceapi==='undefined') throw new Error('faceapi not loaded');
+      const MODEL_URL='https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/model';
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL)
+      ]);
+      faceApiReady=true;
       document.getElementById('camToggle').textContent='Webcam + AI Active';
-      console.log('[TALK TO ME] Face landmark model loaded successfully');
+      console.log('[TALK TO ME] Face-api models loaded');
     }catch(e){
-      console.warn('[TALK TO ME] Face model failed to load, using basic detection:',e);
+      console.warn('[TALK TO ME] Face-api failed to load:',e);
       document.getElementById('camToggle').textContent='Webcam Enabled (basic)';
     }
     startPresence();
@@ -1362,123 +1355,105 @@ async function initWebcam(){
   }
 }
 
-// Face landmark indices for key features
-// MediaPipe FaceMesh: 478 landmarks with refineLandmarks
-const FACE_IDX={
-  noseTip:1, foreheadTop:10, chin:152,
-  leftEyeInner:133, leftEyeOuter:33, rightEyeInner:362, rightEyeOuter:263,
-  leftIris:468, rightIris:473, // only available with refineLandmarks
-  leftMouth:61, rightMouth:291, topLip:13, bottomLip:14,
-  leftCheek:234, rightCheek:454
-};
-
-function analyzeface(keypoints,videoW,videoH){
-  const kp=keypoints;
-  const get=(i)=>kp[i]?{x:kp[i].x,y:kp[i].y,z:kp[i].z||0}:{x:0,y:0,z:0};
-
-  // --- POSTURE: face centered in frame + head upright ---
-  const nose=get(FACE_IDX.noseTip);
-  const forehead=get(FACE_IDX.foreheadTop);
-  const chin=get(FACE_IDX.chin);
-  // How centered is the face? (0-100, 100=perfectly centered)
-  const centerX=Math.abs(nose.x-videoW/2)/(videoW/2);
-  const centerY=Math.abs(nose.y-videoH/2)/(videoH/2);
-  const centerScore=Math.max(0,100-centerX*80-centerY*60);
-  // Head tilt (roll) from forehead-to-chin angle
-  const dx=chin.x-forehead.x,dy=chin.y-forehead.y;
-  const tiltAngle=Math.abs(Math.atan2(dx,dy))*180/Math.PI;
-  const tiltScore=Math.max(0,100-tiltAngle*4);
-  const posture=centerScore*0.5+tiltScore*0.5;
-
-  // --- EYE CONTACT: iris position relative to eye corners ---
-  let eyeContact=70; // default if no iris data
-  if(kp.length>473){
-    const lIris=get(FACE_IDX.leftIris),rIris=get(FACE_IDX.rightIris);
-    const lInner=get(FACE_IDX.leftEyeInner),lOuter=get(FACE_IDX.leftEyeOuter);
-    const rInner=get(FACE_IDX.rightEyeInner),rOuter=get(FACE_IDX.rightEyeOuter);
-    // Iris position as fraction of eye width (0=outer, 1=inner, 0.5=centered)
-    const lEyeW=Math.sqrt((lInner.x-lOuter.x)**2+(lInner.y-lOuter.y)**2)||1;
-    const rEyeW=Math.sqrt((rInner.x-rOuter.x)**2+(rInner.y-rOuter.y)**2)||1;
-    const lIrisPos=Math.sqrt((lIris.x-lOuter.x)**2+(lIris.y-lOuter.y)**2)/lEyeW;
-    const rIrisPos=Math.sqrt((rIris.x-rOuter.x)**2+(rIris.y-rOuter.y)**2)/rEyeW;
-    // Score: 0.4-0.6 is looking at camera, further away = looking elsewhere
-    const lDeviation=Math.abs(lIrisPos-0.5)*2;
-    const rDeviation=Math.abs(rIrisPos-0.5)*2;
-    const avgDeviation=(lDeviation+rDeviation)/2;
-    eyeContact=Math.max(10,100-avgDeviation*120);
-  }
-
-  // --- HEAD POSE (yaw) from nose-to-cheeks symmetry ---
-  const lCheek=get(FACE_IDX.leftCheek),rCheek=get(FACE_IDX.rightCheek);
-  const lDist=Math.abs(nose.x-lCheek.x),rDist=Math.abs(nose.x-rCheek.x);
-  const symmetry=Math.min(lDist,rDist)/(Math.max(lDist,rDist)||1);
-  // If looking sideways, reduce eye contact
-  if(symmetry<0.7) eyeContact*=symmetry;
-
-  return{posture,eyeContact};
-}
-
 function startPresence(){
   const v=document.getElementById('webcamVideo');
-  let prevFacePos=null,motionHistory=[],fc=0;
+  let prevNose=null,motionHistory=[],fc=0;
   let lastDetectTime=0;
-  const DETECT_INTERVAL=200; // run detection every 200ms to save CPU
+  const DETECT_INTERVAL=250;
 
   async function run(){
-    if(!STATE.webcamOn){return;}
+    if(!STATE.webcamOn)return;
     const now=Date.now();
 
     if(now-lastDetectTime>=DETECT_INTERVAL){
       lastDetectTime=now;
       try{
-        let posture=50,eyeContact=50,composure=70,engagement=50;
+        let posture=0,eyeContact=0,composure=0,engagement=0;
 
-        if(faceDetector&&v.readyState>=2&&v.videoWidth>0){
-          const faces=await faceDetector.estimateFaces(v,{flipHorizontal:false});
-          if(faces.length>0&&faces[0].keypoints&&faces[0].keypoints.length>100){
+        if(faceApiReady&&v.readyState>=2&&v.videoWidth>0){
+          const detection=await faceapi.detectSingleFace(v,new faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.3})).withFaceLandmarks(true);
+
+          if(detection){
             STATE.faceDetected=true;
-            const face=faces[0];
-            const kp=face.keypoints;
-            const videoW=v.videoWidth||320,videoH=v.videoHeight||240;
+            const landmarks=detection.landmarks;
+            const box=detection.detection.box;
+            const vw=v.videoWidth,vh=v.videoHeight;
 
-            if(fc<3)console.log('[TALK TO ME] Face detected, keypoints:',kp.length,'video:',videoW,'x',videoH);
+            if(fc<3)console.log('[TALK TO ME] Face detected, box:',Math.round(box.x),Math.round(box.y),Math.round(box.width),Math.round(box.height));
 
-            // Analyze face landmarks
-            const analysis=analyzeface(kp,videoW,videoH);
-            posture=analysis.posture;
-            eyeContact=analysis.eyeContact;
+            // === POSTURE: face centered + upright ===
+            const faceCenterX=box.x+box.width/2;
+            const faceCenterY=box.y+box.height/2;
+            const offCenterX=Math.abs(faceCenterX-vw/2)/(vw/2);
+            const offCenterY=Math.abs(faceCenterY-vh/2)/(vh/2);
+            const centerScore=Math.max(0,100-offCenterX*60-offCenterY*40);
+            // Head tilt from eye alignment
+            const leftEye=landmarks.getLeftEye();
+            const rightEye=landmarks.getRightEye();
+            const eyeCenter=(pt)=>({x:pt.reduce((s,p)=>s+p.x,0)/pt.length,y:pt.reduce((s,p)=>s+p.y,0)/pt.length});
+            const le=eyeCenter(leftEye),re=eyeCenter(rightEye);
+            const eyeAngle=Math.abs(Math.atan2(re.y-le.y,re.x-le.x))*180/Math.PI;
+            const tiltScore=Math.max(0,100-eyeAngle*5);
+            // Face size in frame (too far = small box, too close = huge box)
+            const faceRatio=box.height/vh;
+            const sizeScore=faceRatio>0.25&&faceRatio<0.7?90:faceRatio>0.15?60:30;
+            posture=centerScore*0.4+tiltScore*0.3+sizeScore*0.3;
 
-            // --- COMPOSURE: stability of face position over time ---
-            const nosePt=kp[FACE_IDX.noseTip];
-            if(prevFacePos){
-              const motion=Math.sqrt((nosePt.x-prevFacePos.x)**2+(nosePt.y-prevFacePos.y)**2);
+            // === EYE CONTACT: gaze direction from iris position ===
+            const leftEyePts=landmarks.getLeftEye();
+            const rightEyePts=landmarks.getRightEye();
+            // Eye openness (EAR - eye aspect ratio)
+            function eyeAspectRatio(eye){
+              const w=Math.sqrt((eye[3].x-eye[0].x)**2+(eye[3].y-eye[0].y)**2);
+              const h1=Math.sqrt((eye[1].x-eye[5].x)**2+(eye[1].y-eye[5].y)**2);
+              const h2=Math.sqrt((eye[2].x-eye[4].x)**2+(eye[2].y-eye[4].y)**2);
+              return(h1+h2)/(2*w);
+            }
+            const lEAR=eyeAspectRatio(leftEyePts),rEAR=eyeAspectRatio(rightEyePts);
+            const avgEAR=(lEAR+rEAR)/2;
+            // Gaze: nose tip position relative to face bounding box center
+            const nose=landmarks.getNose();
+            const noseTip=nose[3]||nose[0];
+            const noseOffsetX=Math.abs(noseTip.x-faceCenterX)/(box.width/2);
+            const noseOffsetY=(noseTip.y-box.y)/box.height;
+            // Looking at camera: nose centered, eyes open
+            const gazeScore=Math.max(0,100-noseOffsetX*80);
+            const openScore=avgEAR>0.2?90:avgEAR>0.15?60:20; // eyes open
+            eyeContact=gazeScore*0.7+openScore*0.3;
+
+            // === COMPOSURE: face position stability ===
+            const nosePos={x:noseTip.x,y:noseTip.y};
+            if(prevNose){
+              const motion=Math.sqrt((nosePos.x-prevNose.x)**2+(nosePos.y-prevNose.y)**2);
               motionHistory.push(motion);
               if(motionHistory.length>30)motionHistory.shift();
               const avgMotion=motionHistory.reduce((a,b)=>a+b,0)/motionHistory.length;
-              composure=Math.max(15,100-avgMotion*8);
+              composure=Math.max(15,100-avgMotion*6);
+            } else {
+              composure=70;
             }
-            prevFacePos={x:nosePt.x,y:nosePt.y};
+            prevNose=nosePos;
 
-            // --- ENGAGEMENT: some motion is good (nodding, expressiveness) ---
-            const recentMotion=motionHistory.slice(-10);
-            if(recentMotion.length>0){
-              const recentAvg=recentMotion.reduce((a,b)=>a+b,0)/recentMotion.length;
-              if(recentAvg<0.5)engagement=35;
-              else if(recentAvg<3)engagement=80+recentAvg*5;
-              else if(recentAvg<6)engagement=70;
-              else engagement=Math.max(20,60-recentAvg*3);
+            // === ENGAGEMENT: natural motion sweet spot ===
+            const recent=motionHistory.slice(-10);
+            if(recent.length>0){
+              const avg=recent.reduce((a,b)=>a+b,0)/recent.length;
+              if(avg<0.8)engagement=35;
+              else if(avg<4)engagement=75+avg*5;
+              else if(avg<7)engagement=65;
+              else engagement=Math.max(20,55-avg*3);
+            } else {
+              engagement=50;
             }
 
             const avg=(posture+eyeContact+composure+engagement)/4;
             document.getElementById('webcamOverlay').className='webcam-overlay '+(avg>65?'good':avg>40?'warn':'bad');
           } else {
             STATE.faceDetected=false;
-            if(fc<5)console.log('[TALK TO ME] No face detected, faces:',faces.length);
-            posture=0;eyeContact=0;composure=0;engagement=0;
             document.getElementById('webcamOverlay').className='webcam-overlay bad';
           }
-        } else if(!faceDetector){
-          // Fallback: basic brightness/motion detection if model didn't load
+        } else if(!faceApiReady){
+          // Fallback: basic brightness detection
           const c=document.getElementById('webcamCanvas'),ctx=c.getContext('2d');
           c.width=80;c.height=60;ctx.drawImage(v,0,0,80,60);
           const d=ctx.getImageData(0,0,80,60).data;
@@ -1488,14 +1463,14 @@ function startPresence(){
           if(cb>60&&cb<220){STATE.faceDetected=true;posture=65;eyeContact=55;composure=60;engagement=50;}
         }
 
-        // Smooth the scores
+        // Smooth scores
         const sm=0.15;
         STATE.presenceScores.posture+=(Math.min(100,Math.max(0,posture))-STATE.presenceScores.posture)*sm;
         STATE.presenceScores.eyes+=(Math.min(100,Math.max(0,eyeContact))-STATE.presenceScores.eyes)*sm;
         STATE.presenceScores.composure+=(Math.min(100,Math.max(0,composure))-STATE.presenceScores.composure)*sm;
         STATE.presenceScores.engagement+=(Math.min(100,Math.max(0,engagement))-STATE.presenceScores.engagement)*sm;
 
-        // Update UI meters
+        // Update meters
         ['posture','eyes','composure','engagement'].forEach(k=>{
           const val=Math.round(STATE.presenceScores[k]||0);
           const cap=k==='eyes'?'Eyes':k[0].toUpperCase()+k.slice(1);
